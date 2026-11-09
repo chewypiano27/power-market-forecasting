@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "files": [
+    "src/renderers/electrobun/bun/index.ts",
+    "src/renderers/electrobun/view/main.tsx",
+    "scripts/build-electrobun-view.ts",
+    "electrobun.config.ts"
+  ],
+  "include": []
+}
