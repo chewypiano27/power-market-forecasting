@@ -1,0 +1,50 @@
+import type { RefObject } from "react";
+import type { LayoutBounds } from "../../../layout/pane-manager";
+import type { ScrollBoxRenderable } from "../../../ui";
+import type { CommandBarListRow, ListScreenState, ResultItem } from "../list/model";
+import type { CommandBarListScrollEvent } from "../list/view";
+import type { ThemePickerHandle } from "../theme-picker";
+import type { CommandBarRoute } from "../workflow/types";
+
+export interface CommandBarPanelProps {
+  bodySlotKey: string;
+  committedThemeId: string;
+  contentPadding: number;
+  currentRoute: CommandBarRoute | null;
+  /** The sheet height already reserves the chrome row, so the body must render it whenever this is set. */
+  hasChromeRow: boolean;
+  labelWidth: number;
+  listBodyHeight: number;
+  nativeListRows: CommandBarListRow[];
+  nativeListScrollRef: RefObject<ScrollBoxRenderable | null>;
+  nativeOccluderRect: LayoutBounds;
+  nativePaneChrome: boolean;
+  onBack: () => void;
+  onListHoverIndex: (index: number | null) => void;
+  onListRowMouseDown: (event: any, item: ResultItem, globalIdx: number) => void;
+  onListScroll: (event: CommandBarListScrollEvent) => void;
+  onNativeOccluderChange?: (rect: LayoutBounds | null) => void;
+  onOverlayClose: () => void;
+  onQueryChange: (query: string) => void;
+  onThemeCommit: (themeId: string) => void;
+  onThemePreview: (themeId: string | null) => void;
+  panelBounds: LayoutBounds;
+  queryDisplayWidth: number;
+  rootGhostSuffix: string | null;
+  rootShortcutFeedback: string | null;
+  /** What Enter does on the root screen: runs the typed shortcut the feedback line names. */
+  onRunShortcut: () => void;
+  /**
+   * Line the scroll box has to reach for the selected row to be fully visible,
+   * or -1 when nothing is selected. Rows are not all one line tall, so this is a
+   * line offset rather than a row index.
+   */
+  selectedScrollRowIndex: number;
+  termHeight: number;
+  termWidth: number;
+  themePickerActive: boolean;
+  themePickerFilter: string;
+  themePickerRef: RefObject<ThemePickerHandle | null>;
+  trailingWidth: number;
+  visibleListState: ListScreenState | null;
+}
