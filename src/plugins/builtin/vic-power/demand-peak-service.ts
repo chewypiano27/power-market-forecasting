@@ -1,3 +1,4 @@
+import { savedPeakCalculation, validPeakCalculation } from "./demand-peak-calculation";
 import type { PluginPersistence } from "../../../types/plugin";
 import { readPeakJournal, recordPeakJournal } from "./demand-peak-journal";
 import { createPluginCache } from "../../../data/plugin-cache";
@@ -13,6 +14,7 @@ function validCachedPeak(value: unknown, target?: string): value is ReadyPeak {
   if (!value || typeof value !== "object") return false;
   const data = value as ReadyPeak;
   try { return data.status === "ready" && (!target || data.targetDate === target) && !!peakModel && data.targetDate > peakModel.testEnd
+    && (data.calculation === undefined || validPeakCalculation(data.calculation, data.basePeakMw))
     && data.issueAt === demandIssue(data.targetDate).issueAt && Number.isFinite(data.basePeakMw) && data.basePeakMw > 0
     && Number.isFinite(data.correctionMw) && data.correctionDays === peakModel.biasCorrection.days && Math.abs(data.peakMw - data.basePeakMw - data.correctionMw) < 1e-7 && Number.isFinite(data.peakMw) && data.peakMw > 0
     && Number.isFinite(data.baselineMw) && data.baselineMw > 0 && Number.isFinite(Date.parse(data.forecastReferenceAt))
@@ -29,7 +31,7 @@ export const getPeakJournal = () => peakModel ? readPeakJournal(persistence, pea
 function firstSavedForecast(result: ReadyPeak): ReadyPeak {
   const first = getPeakJournal().find(entry => entry.targetDate === result.targetDate);
   return first ? { ...result, peakMw: first.peakMw, baselineMw: first.baselineMw, basePeakMw: first.basePeakMw,
-    correctionMw: first.correctionMw, correctionDays: first.correctionDays, forecastReferenceAt: first.forecastReferenceAt } : result;
+    correctionMw: first.correctionMw, correctionDays: first.correctionDays, forecastReferenceAt: first.forecastReferenceAt, calculation: savedPeakCalculation(first, result) } : result;
 }
 /** One capture per target/model while the main desktop window is running. */
 export function startPeakTracking(): () => void {

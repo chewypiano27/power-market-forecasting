@@ -1,3 +1,4 @@
+import { savedPeakCalculation } from "./demand-peak-calculation";
 import type { PluginPersistence } from "../../../types/plugin";
 import { demandIssue, shiftDemandDate, type DemandDay } from "./demand-features";
 import type { PeakArtifact, PeakResult } from "./demand-peak";
@@ -34,6 +35,10 @@ export function recordPeakJournal(store: PluginPersistence | null, model: PeakAr
     changed = true;
   }
   for (const entry of entries) {
+    if (!entry.calculation && entry.targetDate === result.targetDate) {
+      const calculation = savedPeakCalculation(entry, result);
+      if (calculation) { entry.calculation = calculation; changed = true; }
+    }
     if (entry.actualMw !== undefined || demandIssue(entry.targetDate).end > now) continue;
     const actual = history.find(day => day.date === entry.targetDate);
     if (!actual?.complete || actual.peak === null || !Number.isFinite(actual.peak) || actual.peak <= 0) continue;
