@@ -1,10 +1,12 @@
+import { peakTestRows, peakTestMetrics } from "./demand-peak-test";
+import { DemandPeakDrivers } from "./demand-peak-drivers";
 import { peakJournalMetrics } from "./demand-peak-journal";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChartTableHeader, DataTableView, PaneStatusBody, QueryBar, StatGrid, Badge, scalarPoint, staticSeries, statGridRows, useChartTableSelection, usePaneStatusFooter, type DataTableColumn } from "../../../components";
 import { useAsyncResource, useAutoRefresh, usePluginPaneState } from "../../../public/react";
 import { usePaneRefreshKey } from "../../../components/data-table/table-pane";
 import { useAppLanguage } from "../../../i18n/react";
-import { getUiLocale, t, tf } from "../../../i18n";
+import { t, tf } from "../../../i18n";
 import { useThemeColors } from "../../../theme/theme-context";
 import { Box, Text } from "../../../ui";
 import { FILL_REST } from "../../../components/ui/fill";
@@ -35,7 +37,7 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
   const colors = useThemeColors();
   const [now, setNow] = useState(Date.now);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
-  const [period, setPeriod] = usePluginPaneState("peak-history-period", "recent");
+  const [period, setPeriod] = usePluginPaneState("peak-history-period", "test");
   const [targetChoice, setTargetChoice] = usePluginPaneState("peak-target", "latest");
   const [selectedId, setSelectedId] = usePluginPaneState<string | null>("peak-history-selection", null);
   const target = targetChoice === "next" ? nextDemandTarget(now) : latestPeakTarget(now);
@@ -49,18 +51,19 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
     { label: "Peak forecast", value: ready ? mw(ready.peakMw) : forecast.loading ? t("Loading") : t(forecast.data?.status === "pending" ? "Pending" : "Unavailable") },
     { label: "NEM day (AEST)", value: display.forecastDay },
     { label: "Weekly baseline", value: ready ? mw(ready.baselineMw) : "—" },
-    { label: "Correction", value: ready ? `${ready.correctionMw >= 0 ? "+" : ""}${mw(ready.correctionMw)}` : "—", detail: ready ? tf("{days} completed days", { days: ready.correctionDays }) : undefined },
     { label: now < Date.parse(demandIssue(target).issueAt) ? `Scheduled (${display.issueZone})` : `Issued (${display.issueZone})`, value: display.issue },
   ];
   const journal = useMemo(() => getPeakJournal(), [forecast.updatedAt]);
-  const tracking = period === "live";
+  const tracking = period === "live", testing = period === "test";
+  const testRows = useMemo(() => peakTestRows(peakModel, journal), [journal]);
+  const testMetrics = peakTestMetrics(testRows);
   const liveMetrics = peakJournalMetrics(journal);
   usePaneStatusFooter({ registrationId: "vic-power:peak-preview", loading: forecast.loading,
     error: forecast.error ?? (forecast.data?.status === "unavailable" ? forecast.data.reason : null),
-    info: [{ id: "peak-scope", parts: [{ text: tracking ? "Live tracking · first saved forecasts · NEM AEST" : "Historical comparison · Jan–Oct 2026 · NEM AEST", tone: "muted" }] }] });
-  const rows: Row[] = useMemo(() => period === "live" ? journal.map(entry => [entry.targetDate, entry.peakMw, entry.actualMw ?? null, entry.baselineMw])
-    : period === "all" ? history?.rows ?? [] : history?.rows.slice(-30) ?? [], [period, journal]);
-  const tableColumns = tracking ? [columns[0]!, { id: "recorded", label: "FORECAST SAVED", width: 30, flexGrow: 1, align: "left" as const }, ...columns.slice(1, 4)] : columns;
+    info: [{ id: "peak-scope", parts: [{ text: testing ? "Test results · from 2 November 2026 · NEM AEST" : tracking ? "Live tracking · first saved forecasts · NEM AEST" : "Historical comparison · Jan–Oct 2026 · NEM AEST", tone: "muted" }] }] });
+  const rows: Row[] = useMemo(() => period === "test" ? testRows : period === "live" ? journal.map(entry => [entry.targetDate, entry.peakMw, entry.actualMw ?? null, entry.baselineMw])
+    : period === "all" ? history?.rows ?? [] : history?.rows.slice(-30) ?? [], [period, journal, testRows]);
+  const tableColumns = columns;
   const selectedIndex = Math.max(0, rows.findIndex(row => row[0] === selectedId));
   const selection = useChartTableSelection({ rows, getId: rowId, getDate: rowDate, selectedId: rows[selectedIndex]?.[0] ?? null, onSelect: setSelectedId, focused });
   const series = useMemo(() => ([
@@ -69,7 +72,7 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
     id: `peak:${column}`, label, color, calendarSpaced: true,
   }), panelId: "peak", unit: "MW", unitGroup: "demand" })), [rows, colors.warning, colors.textBright, colors.borderFocused]);
   if (!history) return <PaneStatusBody empty subject="Peak demand model" emptyTitle="Peak history unavailable." />;
-  const tableHeight = Math.max(6, height - statGridRows(liveStats, width) - 3);
+  const tableHeight = Math.max(6, height - statGridRows(liveStats, width) - (ready ? 6 : 0) - 3);
   const note = forecast.data && forecast.data.status !== "ready" ? forecast.data.reason : ready?.inputWarning ?? "Day-ahead issue: 18:00 AEST. Weather inputs use a fixed 48-hour lead.";
   return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     <Box paddingX={1} flexShrink={0}>
@@ -77,16 +80,15 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
         <Badge label="LOCAL CANDIDATE" tone="warning" /><Text fg={colors.textDim}>{t("Daily peak demand · MW")}</Text>
       </Box>
       <StatGrid items={liveStats} width={width} />
+      {ready ? <DemandPeakDrivers forecast={ready} /> : null}
       <Text fg={forecast.data?.status === "unavailable" || ready?.inputWarning ? colors.warning : colors.textDim} wrapText>{t(note)}</Text>
     </Box>
-    <DataTableView<Row> key={tracking ? "live" : "history"} focused={focused} rootWidth={width} rootHeight={tableHeight} emptyStateTitle={tracking ? "No saved forecasts for this model yet." : "No held-out peak forecasts available."} columns={tableColumns} items={rows} getItemKey={rowId} freezeFirstColumn sortColumnId="date" sortDirection="asc"
+    <DataTableView<Row> key={period} focused={focused} rootWidth={width} rootHeight={tableHeight} emptyStateTitle={tracking ? "No saved forecasts for this model yet." : "No held-out peak forecasts available."} columns={tableColumns} items={rows} getItemKey={rowId} freezeFirstColumn sortColumnId="date" sortDirection="asc"
       resetScrollKey={period} selection={{ kind: "index", selectedIndex: rows.length ? selectedIndex : -1, onChange: index => setSelectedId(rows[index]?.[0] ?? null) }}
       renderCell={(row, column) => {
-        const entry = tracking ? journal.find(entry => entry.targetDate === row[0]) : undefined;
         const error = row[2] === null ? null : row[1] - row[2];
         const value = column.id === "forecast" ? row[1] : column.id === "actual" ? row[2] : row[3];
         return { text: column.id === "date" ? row[0]
-          : column.id === "recorded" && entry ? `${new Date(entry.recordedAt).toLocaleString(getUiLocale(), { timeZone: "Australia/Melbourne", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${t(entry.beforeTargetDay ? "Before day" : "Late")}`
           : column.id === "error" ? error === null ? "—" : `${error >= 0 ? "+" : ""}${Math.round(error).toLocaleString("en-AU")}`
           : value === null ? t("Pending") : Math.round(value).toLocaleString("en-AU"),
           color: column.id === "error" && error !== null && Math.abs(error) > history!.maeMw ? colors.warning : undefined };
@@ -94,14 +96,17 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
       rootBefore={<ChartTableHeader width={width} height={tableHeight} tableRows={rows.length} tableColumns={tableColumns}
         query={<QueryBar width={width} filters={[
           { id: "peak-target", label: "Forecast target", value: targetChoice, defaultValue: "latest", options: [{ value: "latest", label: "Latest issued" }, { value: "next", label: "Tomorrow" }], onChange: setTargetChoice },
-          { id: "peak-history", label: "Results", value: period, defaultValue: "recent", options: [{ value: "recent", label: "Last 30 test days" }, { value: "all", label: "All test days" }, { value: "live", label: "Live tracking" }], onChange: setPeriod },
+          { id: "peak-history", label: "Results", value: period, defaultValue: "test", options: [{ value: "test", label: "Since 2 November" }, { value: "recent", label: "Last 30 test days" }, { value: "all", label: "All test days" }, { value: "live", label: "Live tracking" }], onChange: setPeriod },
         ]} />}
-        figures={tracking ? [{ label: "Completed forecasts", value: String(liveMetrics.count) },
+        figures={testing ? [{ label: "Completed forecasts", value: String(testMetrics.count) },
+          { label: "Test MAE", value: testMetrics.maeMw === null ? "—" : mw(testMetrics.maeMw) },
+          { label: "Weekly baseline MAE", value: testMetrics.baselineMaeMw === null ? "—" : mw(testMetrics.baselineMaeMw) },
+          { label: "Mean error", value: testMetrics.biasMw === null ? "—" : mw(testMetrics.biasMw) }] : tracking ? [{ label: "Completed forecasts", value: String(liveMetrics.count) },
           { label: "Live MAE", value: liveMetrics.maeMw === null ? "—" : mw(liveMetrics.maeMw) },
           { label: "Weekly baseline MAE", value: liveMetrics.baselineMaeMw === null ? "—" : mw(liveMetrics.baselineMaeMw) },
           { label: "Mean error", value: liveMetrics.biasMw === null ? "—" : mw(liveMetrics.biasMw) }]
           : [{ label: "Test MAE", value: mw(history.maeMw) }, { label: "Weekly baseline MAE", value: mw(history.baselineMaeMw) }, { label: "Test RMSE", value: mw(history.rmseMw) }, { label: "Mean error", value: mw(history.biasMw) }, { label: "Test days", value: String(history.days), detail: "Jan–Oct 2026" }]}
-        chart={{ series, panels: [{ id: "peak", label: "Held-out peak demand MW", height: 1 }], ...selection, timeZone: "Australia/Brisbane", remoteKind: "vic-peak-demand-preview", formatValue: value => mw(value) }} />} />
-    <Box paddingX={1} flexShrink={0}><Text fg={colors.textDim} wrapText>{tracking ? t("Refresh keeps the first saved forecast unchanged. Late forecasts do not count toward live accuracy.") : tf("Error band withheld: {coverage}% test coverage against an {target}% target.", { coverage: Math.round(history.bandCoverage * 100), target: history.bandTarget * 100 })}</Text></Box>
+        chart={{ series, panels: [{ id: "peak", label: testing || tracking ? "Peak demand MW" : "Held-out peak demand MW", height: 1 }], ...selection, timeZone: "Australia/Brisbane", remoteKind: "vic-peak-demand-preview", formatValue: value => mw(value) }} />} />
+    <Box paddingX={1} flexShrink={0}><Text fg={colors.textDim} wrapText>{testing ? t("New days added automatically.") : tracking ? t("Refresh keeps the first saved forecast unchanged. Late forecasts do not count toward live accuracy.") : tf("Error band withheld: {coverage}% test coverage against an {target}% target.", { coverage: Math.round(history.bandCoverage * 100), target: history.bandTarget * 100 })}</Text></Box>
   </Box>;
 }
