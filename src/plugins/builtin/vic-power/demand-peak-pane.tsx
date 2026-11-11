@@ -106,7 +106,7 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
           { label: "Weekly baseline MAE", value: liveMetrics.baselineMaeMw === null ? "—" : mw(liveMetrics.baselineMaeMw) },
           { label: "Mean error", value: liveMetrics.biasMw === null ? "—" : mw(liveMetrics.biasMw) }]
           : [{ label: "Test MAE", value: mw(history.maeMw) }, { label: "Weekly baseline MAE", value: mw(history.baselineMaeMw) }, { label: "Test RMSE", value: mw(history.rmseMw) }, { label: "Mean error", value: mw(history.biasMw) }, { label: "Test days", value: String(history.days), detail: "Jan–Oct 2026" }]}
-        chart={{ series, panels: [{ id: "peak", label: testing || tracking ? "Peak demand MW" : "Held-out peak demand MW", height: 1 }], ...selection, timeZone: "Australia/Brisbane", remoteKind: "vic-peak-demand-preview", formatValue: value => mw(value) }} />} />
+        chart={{ series, viewport: rows.length > 1 ? { start: rowDate(rows[0]!), end: rowDate(rows.at(-1)!) } : undefined, panels: [{ id: "peak", label: testing || tracking ? "Peak demand MW" : "Held-out peak demand MW", height: 1 }], ...selection, timeZone: "Australia/Brisbane", remoteKind: "vic-peak-demand-preview", formatValue: value => mw(value) }} />} />
     <Box paddingX={1} flexShrink={0}><Text fg={colors.textDim} wrapText>{testing ? t("New days added automatically.") : tracking ? t("Refresh keeps the first saved forecast unchanged. Late forecasts do not count toward live accuracy.") : tf("Error band withheld: {coverage}% test coverage against an {target}% target.", { coverage: Math.round(history.bandCoverage * 100), target: history.bandTarget * 100 })}</Text></Box>
   </Box>;
 }
