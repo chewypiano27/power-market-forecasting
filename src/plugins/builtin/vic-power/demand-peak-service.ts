@@ -1,3 +1,4 @@
+import { settlePeakForecasts } from "./demand-peak-settlement";
 import { savedPeakCalculation, validPeakCalculation } from "./demand-peak-calculation";
 import type { PluginPersistence } from "../../../types/plugin";
 import { readPeakJournal, recordPeakJournal } from "./demand-peak-journal";
@@ -35,10 +36,15 @@ function firstSavedForecast(result: ReadyPeak): ReadyPeak {
 }
 /** One capture per target/model while the main desktop window is running. */
 export function startPeakTracking(): () => void {
-  let busy = false, closed = false, attemptedAt = 0;
+  let busy = false, closed = false, attemptedAt = 0, settling = false, settlementAt = -Infinity;
   const capture = () => {
-    if (closed || busy || !persistence || !peakModel) return;
+    if (closed || !persistence || !peakModel) return;
     const now = Date.now(), target = latestPeakTarget(now);
+    if (!settling && now - settlementAt >= 300_000) {
+      settling = true; settlementAt = now;
+      void settlePeakForecasts(persistence, peakModel, now).finally(() => { settling = false; });
+    }
+    if (busy) return;
     if (getPeakJournal().some(entry => entry.targetDate === target) || now - attemptedAt < 60_000) return;
     busy = true; attemptedAt = now;
     void loadPeakDemand(target).catch(() => { /* Retrieval failures retry on the next timer tick. */ }).finally(() => { busy = false; });
