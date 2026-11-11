@@ -5,13 +5,6 @@
  * fixed-width terminal layouts stay readable.
  */
 export const zhCN: Record<string, string> = {
-  "Change Language": "更改语言",
-  "Switch interface language": "切换界面语言",
-  "Choose a language, Enter to save": "选择语言，按 Enter 保存",
-  "No languages match": "没有匹配的语言",
-  "Search by language name or code": "按语言名称或代码搜索",
-  "Languages": "语言",
-
   // ── Common UI ────────────────────────────────────────────────
   "Back": "返回",
   "Done": "完成",
