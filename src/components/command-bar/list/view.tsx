@@ -1,4 +1,3 @@
-import { useAppLanguage } from "../../../i18n/react";
 import { memo, useMemo, type RefObject } from "react";
 import { t } from "../../../i18n";
 import { useRemoteUiNode } from "../../../remote/semantic-tree";
@@ -76,7 +75,6 @@ const CommandBarListItemRow = memo(function CommandBarListItemRow({
   onListScroll,
   onRowMouseDown,
 }: CommandBarListItemRowProps) {
-  useAppLanguage();
   const palette = useCommandBarPalette(nativePaneChrome);
   const presentation = getRowPresentation(item, isSelected, trailingWidth > 0);
   const badge = resolveRowBadge(item);
