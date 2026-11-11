@@ -19,7 +19,7 @@ export function createTranslator(dictionaries: Partial<Record<AppLanguage, Recor
         const pattern = source.split(/(\{\w+\})/g).map(part => {
           if (!/^\{\w+\}$/.test(part)) return escape(part);
           keys.push(part.slice(1, -1));
-          return "(.*?)";
+          return part === "{day}" ? "(\\d{1,2})" : part === "{year}" ? "(\\d{4})" : "(.*?)";
         }).join("");
         templates.push({ pattern: new RegExp(`^${pattern}$`, "i"), keys, english });
       }
