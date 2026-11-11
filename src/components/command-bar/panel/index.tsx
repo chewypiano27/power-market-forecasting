@@ -31,7 +31,6 @@ function resolvePromptPlaceholder(listState: ListScreenState, example: string | 
   if (listState.kind === "root") {
     return example ? tf("Try: {example}", { example }) : t("Search or run a command");
   }
-  if (listState.title === "Security Description") return t("Search tickers");
   return t("Filter");
 }
 
