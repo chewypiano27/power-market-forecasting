@@ -116,9 +116,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "TOGGLE_STATUS_BAR":
       return { ...state, statusBarVisible: !state.statusBarVisible };
 
-    case "SET_LANGUAGE":
-      return { ...state, config: { ...state.config, language: action.language } };
-
     case "SET_THEME":
       if (state.config.theme === action.theme && state.themePreview == null) return state;
       return { ...state, themePreview: null, config: { ...state.config, theme: action.theme } };
