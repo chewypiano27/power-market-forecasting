@@ -34,23 +34,36 @@ export async function fetchDemandProbability(candidate: unknown, targetDate: str
   const deadline = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => { controller.abort(); reject(new Error("Demand inputs timed out")); }, timeoutMs);
   });
-  const text = async (url: string) => {
-    const response = await fetcher(url, { signal: controller.signal });
-    if (!response.ok) throw new Error(`Demand input request failed (${response.status})`);
-    return response.text();
-  };
   try {
-    const months = [...new Set(Array.from({ length: 7 }, (_, index) => shiftDemandDate(targetDate, -2-index).slice(0, 7)))];
-    const [weather, ...market] = await Promise.race([deadline, Promise.all([
-      text(demandForecastUrl(targetDate)),
-      ...months.map(month => text(`https://www.aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_${month.replace("-", "")}_VIC1.csv`)),
-    ])]);
-    const forecast = parseDemandForecast(weather!, targetDate, DEMAND_FORECAST_SOURCE, new Date(now).toISOString());
-    const history = dailyDemand(market.flatMap(body => parseDemandObservations(body)));
+    const { forecast, history } = await Promise.race([deadline, fetchDemandInputs(targetDate, now, fetcher, controller.signal)]);
     return demandProbability(artifact, targetDate, forecast, history, now);
   } catch (error) {
     return { status: "unavailable", reason: controller.signal.aborted ? "Demand inputs timed out" : error instanceof Error ? error.message : String(error) };
   } finally { clearTimeout(timeout); controller.abort(); }
+}
+
+/** Shared, issue-safe inputs for the probability and peak-MW models. */
+export async function fetchDemandInputs(targetDate: string, now: number, fetcher: HttpFetchTransport = httpFetch, signal?: AbortSignal, correctionDays = 0) {
+  if (!Number.isInteger(correctionDays) || correctionDays < 0 || correctionDays > 56) throw new Error("Invalid completed-error window");
+  const text = async (url: string) => {
+    const response = await fetcher(url, { signal });
+    if (!response.ok) throw new Error(`Demand input request failed (${response.status})`);
+    return response.text();
+  };
+  const months = [...new Set(Array.from({ length: correctionDays ? correctionDays + 8 : 7 }, (_, index) => shiftDemandDate(targetDate, -2-index).slice(0, 7)))];
+  const weatherUrl = new URL(demandForecastUrl(targetDate));
+  if (correctionDays) weatherUrl.searchParams.set("start_date", new Date(demandIssue(shiftDemandDate(targetDate, -correctionDays - 1)).start).toISOString().slice(0, 10));
+  const [weather, ...market] = await Promise.all([
+    text(weatherUrl.href),
+    ...months.map(month => text(`https://www.aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_${month.replace("-", "")}_VIC1.csv`)),
+  ]);
+  const parse = (date: string) => parseDemandForecast(weather!, date, DEMAND_FORECAST_SOURCE, new Date(now).toISOString());
+  const recentForecasts = new Map(Array.from({ length: correctionDays }, (_, index) => {
+    const date = shiftDemandDate(targetDate, -2 - index);
+    return [date, parse(date)] as const;
+  }));
+  return { forecast: parse(targetDate), recentForecasts,
+    history: dailyDemand(market.flatMap(body => parseDemandObservations(body))) };
 }
 
 function validCachedDemand(value: unknown, model: DemandProbabilityArtifact): value is Extract<DemandProbabilityResult, { status: "ready" }> {
