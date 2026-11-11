@@ -1,0 +1,27 @@
+{
+  "name": "power-market-forecasting",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "description": "Victorian power market forecasting workstation",
+  "scripts": {
+    "desktop:view:build": "bun run scripts/build-electrobun-view.ts",
+    "desktop:dev": "electrobun dev",
+    "desktop:build": "electrobun build",
+    "typecheck": "tsc --project tsconfig.desktop.json"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "@tanstack/react-virtual": "3.14.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "@types/node": "22.15.30",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "0.165.0",
+    "electrobun": "1.18.1",
+    "typescript": "5.9.2"
+  }
+}
