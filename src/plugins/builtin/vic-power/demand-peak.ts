@@ -1,3 +1,4 @@
+import { peakCalculation, type PeakCalculation } from "./demand-peak-calculation";
 import { buildDemandFeatures, DEMAND_FEATURES, DEMAND_MODEL, DEMAND_FORECAST_POLICY, demandIssue, shiftDemandDate, type DemandDay, type DemandForecast } from "./demand-features";
 
 export const PEAK_FEATURES = [...DEMAND_FEATURES, "sameWeekdayPeak"] as const;
@@ -44,7 +45,7 @@ export function meanPeakCorrection(model: PeakArtifact, targetDate: string, erro
   }
   return total / model.biasCorrection.days;
 }
-export type PeakResult = { status: "ready"; peakMw: number; basePeakMw: number; correctionMw: number; correctionDays: number; baselineMw: number; targetDate: string; issueAt: string; forecastReferenceAt: string; inputWarning?: string }
+export type PeakResult = { status: "ready"; peakMw: number; basePeakMw: number; correctionMw: number; correctionDays: number; baselineMw: number; targetDate: string; issueAt: string; forecastReferenceAt: string; calculation?: PeakCalculation; inputWarning?: string }
   | { status: "pending" | "expired" | "unavailable"; reason: string };
 
 /** Prospective inference uses only complete days and archived weather available before issue. */
@@ -75,6 +76,6 @@ export function peakDemand(candidate: unknown, targetDate: string, forecast: Dem
     const correctionMw = meanPeakCorrection(model, targetDate, errors), peakMw = basePeakMw + correctionMw;
     if (!Number.isFinite(peakMw) || peakMw <= 0) throw new Error("Peak demand calculation is invalid");
     return { status: "ready", peakMw, basePeakMw, correctionMw, correctionDays: model.biasCorrection.days, baselineMw: baseline.peak,
-      targetDate, issueAt: features.issueAt, forecastReferenceAt: features.forecastReferenceAt };
+      targetDate, issueAt: features.issueAt, forecastReferenceAt: features.forecastReferenceAt, calculation: peakCalculation(model, [...features.values, baseline.peak]) };
   } catch (error) { return { status: "unavailable", reason: error instanceof Error ? error.message : String(error) }; }
 }
