@@ -1,0 +1,199 @@
+import { type ComponentType } from "react";
+import { Box, Text, useUiHost } from "../../ui";
+import { useThemeColors } from "../../theme/theme-context";
+import { useRemoteUiNode } from "../../remote/semantic-tree";
+import { t } from "../../i18n";
+
+export type IconName =
+  | "more"
+  | "help"
+  | "close"
+  | "zap"
+  | "sqrt"
+  | "lock"
+  | "warning"
+  | "back"
+  | "chevron-down"
+  | "chevron-right"
+  | "search"
+  | "plus"
+  | "check"
+  | "minimize"
+  | "maximize"
+  | "restore"
+  | "cloud"
+  | "sound-on"
+  | "sound-off"
+  | "play"
+  | "pause"
+  | "user"
+  | "sort-up"
+  | "sort-down"
+  | "grip"
+  | "image"
+  | "thumbs-up"
+  | "thumbs-down"
+  | "ask"
+  | "bot"
+  | "team"
+  | "pro"
+  | "clock"
+  | "edit";
+
+/** Terminal glyph for each icon; the desktop host draws SVG. */
+export const ICON_GLYPHS: Record<IconName, string> = {
+  more: "...",
+  help: "?",
+  close: "x",
+  zap: "⚡",
+  sqrt: "√",
+  lock: "🔒",
+  warning: "⚠",
+  back: "←",
+  "chevron-down": "▾",
+  "chevron-right": "›",
+  search: "/",
+  plus: "+",
+  check: "✓",
+  minimize: "_",
+  maximize: "□",
+  restore: "❐",
+  cloud: "☁",
+  "sound-on": "◖)",
+  "sound-off": "◖·",
+  play: "▸",
+  pause: "‖",
+  user: "@",
+  "sort-up": "▲",
+  "sort-down": "▼",
+  grip: "::",
+  image: "▣",
+  // Votes rather than emoji: an emoji keeps its own colours, so it could not
+  // show which thumb is chosen.
+  "thumbs-up": "+1",
+  "thumbs-down": "-1",
+  // Ask Workstation: a four-point spark.
+  ask: "✦",
+  // Who someone is in chat: a bot's square face, the Workstation mark (a core in a
+  // ring) for the team, a gem for Pro. Three shapes, so they read without
+  // colour, each one cell wide in any terminal: none is an emoji or a
+  // character East Asian terminals widen to two cells.
+  bot: "⍠",
+  team: "◉",
+  pro: "◊",
+  // Time, for data that arrives late (a delayed quote).
+  clock: "◷",
+  edit: "✎",
+};
+
+export interface IconProps {
+  name: IconName;
+  /** Pixel size on the desktop; the terminal draws one glyph. */
+  size?: number;
+  color?: string;
+}
+
+/** One glyph from the app's icon set. */
+export function Icon({ name, size = 12, color }: IconProps) {
+  const colors = useThemeColors();
+  const HostIcon = useUiHost().Icon as ComponentType<IconProps> | undefined;
+  if (HostIcon) return <HostIcon name={name} size={size} color={color} />;
+  return <Text fg={color ?? colors.textDim} selectable={false}>{ICON_GLYPHS[name]}</Text>;
+}
+
+/** What a press hands back: where it happened, so a menu can open from the button. */
+export interface IconButtonPressEvent {
+  target?: unknown;
+  pixelX?: number;
+  pixelY?: number;
+  button?: number;
+  preventDefault(): void;
+  stopPropagation(): void;
+}
+
+export interface IconButtonProps {
+  icon: IconName;
+  /** Accessible name. Also the tooltip unless `title` is given. */
+  label: string;
+  /** Tooltip when it should say more than the name (a count, a state). */
+  title?: string;
+  /** Key that triggers the same action, announced to assistive tech. */
+  shortcut?: string;
+  /** The press opens a menu or dialog. */
+  hasPopup?: "menu" | "dialog";
+  onPress?: (event?: IconButtonPressEvent) => void;
+  /** Toggle state for a pressed/unpressed icon (quick settings). */
+  pressed?: boolean;
+  color?: string;
+  disabled?: boolean;
+  size?: number;
+  /** Keep the press from also reaching a row or header behind the button. */
+  stopPropagation?: boolean;
+}
+
+/**
+ * The one icon-only button: pane header actions, footer indicators, dialog
+ * close, window controls. Desktop draws a hover-washed square with an SVG;
+ * the terminal draws the glyph with a space either side.
+ */
+export function IconButton({
+  icon,
+  label: rawLabel,
+  title,
+  shortcut,
+  hasPopup,
+  onPress,
+  pressed,
+  color,
+  disabled = false,
+  size = 12,
+  stopPropagation = true,
+}: IconButtonProps) {
+  const colors = useThemeColors();
+  const label = t(rawLabel);
+  useRemoteUiNode({
+    role: "button",
+    label,
+    disabled,
+    actions: { press: () => { if (!disabled) onPress?.(); } },
+    metadata: { icon, pressed },
+  });
+  const HostIconButton = useUiHost().IconButton as ComponentType<IconButtonProps> | undefined;
+  if (HostIconButton) {
+    return (
+      <HostIconButton
+        icon={icon}
+        label={label}
+        title={title}
+        shortcut={shortcut}
+        hasPopup={hasPopup}
+        onPress={onPress}
+        pressed={pressed}
+        color={color}
+        disabled={disabled}
+        size={size}
+        stopPropagation={stopPropagation}
+      />
+    );
+  }
+  return (
+    <Box
+      height={1}
+      flexDirection="row"
+      cursor={disabled || !onPress ? "default" : "pointer"}
+      data-power-interactive={onPress && !disabled ? "true" : undefined}
+      onMouseDown={(event: IconButtonPressEvent) => {
+        if (stopPropagation) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+        }
+        if (!disabled) onPress?.(event);
+      }}
+    >
+      {/* Pressed takes the colour the desktop and the terminal pane header give an active toggle. */}
+      <Text fg={disabled ? colors.textMuted : color ?? (pressed ? colors.warning : colors.textDim)} selectable={false}>
+        {` ${ICON_GLYPHS[icon]} `}
+      </Text>
+    </Box>
+  );
+}
