@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "evaluationSha256": "4f89fb4adc582ec901e4782e25763be7f7390f142c22e7b0f4b51e2e371dbba1",
+  "sourceManifestHash": "ab0ecd99270f1c574aec70c1fe64a627676efcdc07e9698f0a1e554c4d169623",
+  "fromDate": "2026-01-01",
+  "through": "2026-10-31",
+  "days": 304,
+  "maeMw": 255.13032966026674,
+  "rmseMw": 336.8772743420145,
+  "biasMw": -20.456498433711726,
+  "baselineMaeMw": 617.6532894736843,
+  "bandCoverage": 0.7302631578947368,
+  "bandTarget": 0.8
+}
