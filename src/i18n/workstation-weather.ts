@@ -50,7 +50,7 @@ export const workstationWeather: Record<string, readonly [string, string]> = {
   "Share of raw score; matching colours identify the drivers below.": ["Porcentaje de la suma total; los colores corresponden a los factores de abajo.", "原始评分占比；颜色对应下方各因素。"],
   "{share}% of raw total": ["{share}% de la suma total", "占原始总分 {share}%"],
   "No contributing weather drivers.": ["Ningún factor climático añade puntos.", "没有增加评分的天气因素。"],
-  "Weather stress indicator. These shares are not probabilities or a price forecast.": ["Indicador de estrés climático. Los porcentajes no son probabilidades ni un pronóstico de precios.", "天气压力指标。占比不代表事件概率或电价预测。"],
+  "Weather stress indicator.": ["Indicador de estrés climático.", "天气压力指标。"],
   "Score drivers": ["Factores del índice", "评分因素"],
   "Raw score / displayed cap": ["Índice bruto / límite mostrado", "原始评分／显示上限"],
   "Weather context": ["Contexto meteorológico", "天气说明"],
