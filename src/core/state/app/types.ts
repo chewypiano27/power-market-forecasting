@@ -1,0 +1,174 @@
+import type { AppConfig, KeybindingsConfig, LayoutConfig, LayoutOrigin, OnboardingProgress, StarPromptConfig } from "../../../types/config";
+import type { DesktopSharedStateSnapshot } from "../../../types/desktop-window";
+
+import type { TickerRecord } from "../../../types/ticker";
+
+export interface PaneRuntimeState {
+  cursorSymbol?: string | null;
+  collectionId?: string;
+  activeTabId?: string;
+  collectionSorts?: Record<string, CollectionSortPreference>;
+  pluginState?: Record<string, Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface LayoutHistoryEntry {
+  past: LayoutConfig[];
+  future: LayoutConfig[];
+}
+
+type SortDirection = "asc" | "desc";
+
+export interface CollectionSortPreference {
+  columnId: string | null;
+  direction: SortDirection;
+}
+
+interface CommandBarLaunchRequestBase {
+  sequence: number;
+}
+
+interface CommandBarTickerSearchLaunchRequest extends CommandBarLaunchRequestBase {
+  kind: "ticker-search";
+  query?: string;
+}
+
+/**
+ * Submit `query` the moment the bar opens, as if it had been typed and
+ * entered. A key bound to a command bar string arrives this way; text the
+ * parser cannot run stays in the input so the user sees what it resolved to.
+ */
+interface CommandBarRunQueryLaunchRequest extends CommandBarLaunchRequestBase {
+  kind: "run-query";
+  query: string;
+}
+
+/** The add row opened the bar so the chosen venue joins this collection. */
+interface CommandBarAddListingLaunchRequest extends CommandBarLaunchRequestBase {
+  kind: "add-listing";
+  collectionId: string;
+  collectionKind: "watchlist" | "portfolio";
+}
+
+/** Forms open in their own modal (`openFormModal`), so the bar launches only its own screens. */
+type CommandBarLaunch =
+  | { kind: "ticker-search"; query?: string }
+  | { kind: "run-query"; query: string }
+  | { kind: "add-listing"; collectionId: string; collectionKind: "watchlist" | "portfolio" };
+
+export interface AppState {
+  config: AppConfig;
+  tickers: Map<string, TickerRecord>;
+  /**
+   * @deprecated The app neither reads it nor dispatches updates to it, so it stays `{ USD: 1 }`.
+   * Read live rates with `useFxRatesMap` from `vic1/react`.
+   */
+  /** A failed position import stays visible until this profile syncs successfully. */
+  /**
+   * @deprecated Never set. The app has no left or right panel state; read
+   * `focusedPaneId` for the focused pane.
+   */
+  activePanel?: "left" | "right";
+  focusedPaneId: string | null;
+  previousFocusedPaneId: string | null;
+  paneState: Record<string, PaneRuntimeState>;
+  recentTickers: string[];
+  commandBarOpen: boolean;
+  commandBarQuery: string;
+  commandBarLaunchRequest:
+    | CommandBarTickerSearchLaunchRequest
+    | CommandBarRunQueryLaunchRequest
+    | CommandBarAddListingLaunchRequest
+    | null;
+  themePreview: string | null;
+  initialized: boolean;
+  statusBarVisible: boolean;
+  inputCaptured: boolean;
+  layoutHistory: Record<number, LayoutHistoryEntry>;
+}
+
+export type AppAction =
+  | { type: "SET_CONFIG"; config: AppConfig }
+  | { type: "SET_KEYBINDINGS"; keybindings: KeybindingsConfig | undefined }
+  /** Only the star prompt's own record, so a background write never touches layouts or a theme preview. */
+  | { type: "SET_STAR_PROMPT"; starPrompt: StarPromptConfig | undefined }
+  | {
+      type: "SET_ONBOARDING_STATE";
+      complete: boolean;
+      progress: OnboardingProgress | undefined;
+    }
+  /** @deprecated Never dispatched by the app. Use `HYDRATE_FINANCIALS`. */
+  /** @deprecated Never dispatched by the app. Recent tickers follow a pane's `cursorSymbol`. */
+  /**
+   * @deprecated Focuses the leftmost or rightmost docked pane, and does nothing
+   * with `preserveFocus`. Use `switchPanel` or `FOCUS_PANE`.
+   */
+  | { type: "SET_ACTIVE_PANEL"; panel: "left" | "right"; preserveFocus?: boolean }
+  | { type: "TOGGLE_COMMAND_BAR" }
+  | {
+      type: "SET_COMMAND_BAR";
+      open: boolean;
+      query?: string;
+      launch?: CommandBarLaunch | null;
+    }
+  | { type: "SET_COMMAND_BAR_QUERY"; query: string }
+  | { type: "RECORD_COMMAND"; id: string; label: string; arg?: string }
+  | { type: "SET_INITIALIZED" }
+  | { type: "TOGGLE_STATUS_BAR" }
+  | { type: "SET_THEME"; theme: string }
+  | { type: "PREVIEW_THEME"; theme: string | null }
+  /** Plugins switched on or off; `focusedPaneId` moves focus off a pane that just went hidden. */
+  | { type: "SET_DISABLED_PLUGINS"; disabledPlugins: string[]; focusedPaneId?: string | null }
+  | { type: "SET_INPUT_CAPTURED"; captured: boolean }
+  /** @deprecated Only writes the unused `AppState.exchangeRates`. Use `useFxRatesMap`. */
+  /** @deprecated Only writes the unused `AppState.exchangeRates`. Use `useFxRatesMap`. */
+  | { type: "PUSH_LAYOUT_HISTORY" }
+  | { type: "UNDO_LAYOUT" }
+  | { type: "REDO_LAYOUT" }
+  | { type: "UPDATE_LAYOUT"; layout: LayoutConfig; focusedPaneId?: string | null }
+  | { type: "SWITCH_LAYOUT"; index: number }
+  | { type: "REORDER_LAYOUT"; fromIndex: number; toIndex: number }
+  | { type: "NEW_LAYOUT"; name: string }
+  | {
+      type: "INSTALL_LAYOUT_COPY";
+      name: string;
+      layout: LayoutConfig;
+      paneState: Record<string, PaneRuntimeState>;
+      /** Set when the tab is linked to a team layout. */
+      origin?: LayoutOrigin;
+    }
+  /** Links, relinks, or unlinks a saved tab. Null drops the link and keeps the content. */
+  | { type: "SET_LAYOUT_ORIGIN"; index: number; origin: LayoutOrigin | null }
+  /** Replaces a saved tab's content with a pulled revision. */
+  | {
+      type: "REPLACE_LAYOUT_CONTENT";
+      index: number;
+      layout: LayoutConfig;
+      paneState: Record<string, PaneRuntimeState>;
+      origin: LayoutOrigin;
+      name?: string;
+    }
+  | { type: "DELETE_LAYOUT"; index: number }
+  | { type: "RENAME_LAYOUT"; index: number; name: string }
+  | { type: "DUPLICATE_LAYOUT"; index: number }
+  /**
+   * Moves a pane out of the active layout into a new layout of its own, named
+   * `name` (made unique), which becomes active. `sourceLayoutId` names the
+   * layout it left when that one has no id yet, so Move Back can find it.
+   */
+  | { type: "MOVE_PANE_TO_NEW_LAYOUT"; paneId: string; name: string; sourceLayoutId: string }
+  /** Returns a pane Move to New Layout moved to the layout it came from, which becomes active. */
+  | { type: "MOVE_PANE_BACK"; paneId: string }
+  | { type: "FOCUS_PANE"; paneId: string }
+  | { type: "FOCUS_NEXT"; paneOrder: string[] }
+  | { type: "FOCUS_PREV"; paneOrder: string[] }
+  | { type: "HYDRATE_DESKTOP_SNAPSHOT"; snapshot: DesktopSharedStateSnapshot }
+  | {
+      type: "UPDATE_PLUGIN_PANE_STATE";
+      paneId: string;
+      pluginId: string;
+      key: string;
+      value: unknown;
+    }
+  | { type: "REPLACE_PANE_STATE"; paneId: string; state: PaneRuntimeState }
+  | { type: "UPDATE_PANE_STATE"; paneId: string; patch: Partial<PaneRuntimeState> };
