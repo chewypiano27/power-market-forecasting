@@ -1,5 +1,3 @@
-import { applyLanguageFromConfig } from "../../../../i18n";
-import { resolveLanguage } from "../../language-picker";
 import type { Dispatch } from "react";
 import { exportConfig, importConfig, resetAllData } from "../../../../data/config/store";
 import type { PluginRegistry } from "../../../../plugins/registry";
@@ -170,24 +168,6 @@ export function runDirectCommandAction(options: {
       dispatch({ type: "SET_CONFIG", config: nextConfig });
       persistConfig(nextConfig);
       notify(`Font size: ${next}px`, { type: "success" });
-      closeAll({ revertThemePreview: false });
-      return;
-    }
-    case "language": {
-      if (!arg.trim()) {
-        setRootQuery("LANG ");
-        return;
-      }
-      const language = resolveLanguage(arg);
-      if (!language) {
-        notify("Choose a language from the list.", { type: "info" });
-        setRootQuery(`LANG ${arg}`);
-        return;
-      }
-      const nextConfig = { ...state.config, language };
-      applyLanguageFromConfig(nextConfig);
-      dispatch({ type: "SET_LANGUAGE", language });
-      persistConfig(nextConfig);
       closeAll({ revertThemePreview: false });
       return;
     }
