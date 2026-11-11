@@ -3,13 +3,6 @@
  * Keep finance terminology precise and translations concise for dense layouts.
  */
 export const ko: Record<string, string> = {
-  "Change Language": "언어 변경",
-  "Switch interface language": "인터페이스 언어 전환",
-  "Choose a language, Enter to save": "언어를 선택하고 Enter로 저장",
-  "No languages match": "일치하는 언어 없음",
-  "Search by language name or code": "언어 이름 또는 코드로 검색",
-  "Languages": "언어",
-
   // ── Common UI ────────────────────────────────────────────────
   "Back": "뒤로",
   "Done": "완료",
