@@ -1,4 +1,3 @@
-import { useAppLanguage } from "../../../i18n/react";
 import { useCallback, useMemo, useRef } from "react";
 import { useUiCapabilities, type ScrollBoxRenderable } from "../../../ui";
 import { useViewport } from "../../../react/input";
@@ -52,7 +51,6 @@ function useCommandBarAppState(): AppState {
 }
 
 export function useCommandBarEnvironment() {
-  useAppLanguage();
   const dispatch = useAppDispatch();
   const state = useCommandBarAppState();
   const stateRef = useRef(state);
