@@ -109,6 +109,16 @@ export const commands: Command[] = [
     category: "Config",
   },
   {
+    id: "language",
+    prefix: "LANG",
+    aliases: ["LANGUAGE"],
+    label: "Change Language",
+    description: "Switch interface language",
+    hasArg: true,
+    argPlaceholder: "language",
+    category: "Config",
+  },
+  {
     id: "export-config",
     prefix: "",
     label: "Export Config",
