@@ -1,3 +1,5 @@
+import { t } from "../../../i18n";
+import { useAppLanguage } from "../../../i18n/react";
 import { useEffect, useRef } from "react";
 import { Box, ScrollBox, Span, Text, useUiCapabilities, type ScrollBoxRenderable } from "../../../ui";
 import { colors as themeColors, hoverBg } from "../../../theme/colors";
@@ -223,6 +225,7 @@ export function CompositeLegend({
   /** Folds or opens the legend: a chevron in its inset, shown under the pointer while it is open. */
   onToggleCollapsed?: () => void;
 }) {
+  useAppLanguage();
   const isDesktopWeb = useUiCapabilities().nativePaneChrome === true;
   // Folded, the legend keeps its first series; the rest wait behind a count.
   const foldedCount = collapsed ? Math.max(0, allSeries.length - 1) : 0;
@@ -263,13 +266,13 @@ export function CompositeLegend({
         formatValue,
         scene,
       )}${statedUnit}${valueTail}`;
-    const fullText = [entry.label, valueText].filter(Boolean).join(" ");
+    const fullText = [t(entry.label), valueText].filter(Boolean).join(" ");
     const details = formatCompositePointDetails(cursorValue?.point);
     const exactTotal = entry.unitGroup.split(":")[0] === "currency-total"
       && cursorValue?.value != null && Number.isFinite(cursorValue.value)
       ? `Value ${cursorValue.value} ${entry.unit}` : "";
     const tooltip = [fullText, exactTotal, details].filter(Boolean).join(" · ");
-    const label = entry.label;
+    const label = t(entry.label);
     const compactLabel = label;
     const labelWidth = displayWidth(label);
     const text = [label, valueText].filter(Boolean).join(" ");
