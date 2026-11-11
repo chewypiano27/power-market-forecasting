@@ -1,3 +1,5 @@
+import { getUiLocale, t, tf } from "../../../i18n";
+import { useAppLanguage } from "../../../i18n/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionRow,
@@ -40,6 +42,7 @@ import { vicMarketPoints, type TraderDay, type VicMarketPoint, type Volatility }
 import { bundledDemandModel, loadDemandProbability, nextDemandTarget } from "./demand-service";
 import { DemandHistoryPane } from "./demand-history-pane";
 import { demandDisplay, selectedDemandTarget } from "./demand-display";
+import { ScoreDrivers } from "./score-drivers";
 import { FILL_REST } from "../../../components/ui/fill";
 
 const TEMPERATURE_KEY = "temperature-deviation";
@@ -86,6 +89,7 @@ function useVicPowerPaneStatus(
   focused: boolean,
   context: "market" | "weather" | "history",
 ) {
+  const language = useAppLanguage();
   const refresh = useCallback(() => { void resource.reload(); }, [resource.reload]);
   usePaneRefreshKey(refresh, { focused });
   const fetchedAgo = useUpdatedAgo(resource.data ? Date.parse(resource.data.fetchedAt) : null);
@@ -96,7 +100,7 @@ function useVicPowerPaneStatus(
       const end = resource.data.calendar.at(-1)?.date;
       return end ? [{ id: "through", parts: [
         ...(resource.demoMode ? [{ text: "DEMO SNAPSHOT · ", tone: "warning" as const }] : [{ text: `updated ${fetchedAgo ?? "—"} · `, tone: "muted" as const }]),
-        { text: `forecast through ${new Date(`${end}T12:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short" })} · Melbourne time`, tone: "muted" as const },
+        { text: `forecast through ${new Date(`${end}T12:00:00`).toLocaleDateString(getUiLocale(), { day: "numeric", month: "short" })} · Melbourne time`, tone: "muted" as const },
       ] }] : [];
     }
     const fresh = marketIsFresh(resource.data.latest.settlementDate, resource.data.fetchedAt, Date.now());
@@ -105,7 +109,7 @@ function useVicPowerPaneStatus(
       { text: source, tone: resource.demoMode ? "warning" as const : fresh ? "positive" as const : "warning" as const },
       { text: ` · NEM AEST ${resource.data.latest.settlementDate.replace("T", " ")}`, tone: "muted" as const },
     ] }];
-  }, [context, resource.data, resource.demoMode, fetchedAgo]);
+  }, [context, resource.data, resource.demoMode, fetchedAgo, language]);
   usePaneNoticeFooter({registrationId: `${registrationId}:market-source`, focused, title:"Market data source",
     notices:context === "market" ? resource.data?.marketWarnings ?? [] : []});
   usePaneStatusFooter({ registrationId, loading: context !== "history" && resource.loading, error: context === "history" ? null : resource.error, info });
@@ -157,7 +161,7 @@ function compactNewsTime(value: string): string {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
     ? value.slice(0, 16).replace("T", " ")
-    : parsed.toLocaleString("en-AU", { timeZone: NEM_TIME_ZONE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    : parsed.toLocaleString(getUiLocale(), { timeZone: NEM_TIME_ZONE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function MarketNewsCard({ item }: { item: PowerNewsItem }) {
@@ -167,15 +171,16 @@ function MarketNewsCard({ item }: { item: PowerNewsItem }) {
       <Box flexDirection="row" style={{ gap: "var(--power-space-sm)" }}>
         <Badge label="AEMO" tone="warning" />
         <Text fg={colors.textDim}>{compactNewsTime(item.publishedAt)}</Text>
-        {item.category ? <Text fg={colors.textMuted}>{item.category}</Text> : null}
+        {item.category ? <Text data-power-translate={item.id.startsWith("demo:") ? undefined : "no"} fg={colors.textMuted}>{item.category}</Text> : null}
       </Box>
-      <Text fg={colors.textBright} attributes={TextAttributes.BOLD} wrapText>{item.title}</Text>
-      {item.summary ? <Text fg={colors.textDim} wrapText>{item.summary.slice(0, 220)}</Text> : null}
+      <Text data-power-translate={item.id.startsWith("demo:") ? undefined : "no"} fg={colors.textBright} attributes={TextAttributes.BOLD} wrapText>{item.title}</Text>
+      {item.summary ? <Text data-power-translate={item.id.startsWith("demo:") ? undefined : "no"} fg={colors.textDim} wrapText>{item.summary.slice(0, 220)}</Text> : null}
     </Card>
   );
 }
 
 export function VicMarketGlancePane({ width, height, focused }: PaneProps) {
+  useAppLanguage();
   const colors = useThemeColors();
   const live = useVicPowerData();
   useVicPowerPaneStatus("vic-power:glance", live, focused, "market");
@@ -219,7 +224,7 @@ export function VicMarketGlancePane({ width, height, focused }: PaneProps) {
       <Box>
         <ActionRow label="AEMO market notices" expanded={newsOpen} onPress={() => setNewsOpen(!newsOpen)} width={width}>
           <Box flexGrow={1} />
-          <Text fg={colors.textDim}>{live.data?.news.length ?? 0} updates</Text>
+          <Text fg={colors.textDim}>{tf("{count} updates", { count: live.data?.news.length ?? 0 })}</Text>
         </ActionRow>
         <Box height={newsHeight} flexShrink={0} overflow="hidden" style={{ transition: "height 180ms ease" }}>
           <ScrollBox width={width} height={newsHeight} flexDirection="column" paddingX={1} style={{ gap: "var(--power-space-sm)" }}>
@@ -297,6 +302,7 @@ function DayAheadDemand({ width, focused, selectedDate }: { width: number; focus
 }
 
 export function VicDemandPricePane({ width, height, focused }: PaneProps) {
+  useAppLanguage();
   const colors = useThemeColors();
   const live = useVicPowerData();
   const [view, setView] = usePluginPaneState<"outlook" | "stress" | "history">("weather-load-view", "outlook");
@@ -351,24 +357,16 @@ export function VicDemandPricePane({ width, height, focused }: PaneProps) {
           </Box>
           <Box marginTop={1}>
             <SectionHeading title={selected.date
-              ? new Date(`${selected.date}T12:00:00`).toLocaleDateString("en-AU", { weekday: "long", month: "long", day: "numeric" })
+              ? new Date(`${selected.date}T12:00:00`).toLocaleDateString(getUiLocale(), { weekday: "long", month: "long", day: "numeric" })
               : `Day ${selected.day}`} />
             <KeyValueRow label="Forecast" value={`${selected.low}° / ${selected.high}°`} />
             <KeyValueRow label="Weather-load score" value={`${selected.riskScore ?? 0} / 100 · ${riskLabel(selected.volatility)}`} tone={riskTone(selected.volatility)} />
             <KeyValueRow label="Peak risk window" value={selected.riskWindow ?? "—"} tone={riskTone(selected.volatility)} />
             {(selected.hours?.length ?? 0) > 0 ? (
               <CompositeChart series={selectedRiskSeries} panels={RISK_PANELS} width={width - 2} height={12} focused={false}
-                navigable={false} showLegend showTimeAxis timeZone={WEATHER_TIME_ZONE} formatValue={(value, entry) => `${value.toFixed(1)} ${entry.unit}`} />
+                navigable={false} showLegend showTimeAxis timeZone={WEATHER_TIME_ZONE} formatValue={(value, entry) => `${value.toFixed(1)} ${t(entry.unit)}`} />
             ) : null}
-            <SectionHeading title="Score drivers" marginTop={1} />
-            {(selected.drivers ?? []).filter((driver) => driver.points > 0).toSorted((a, b) => b.points - a.points).map((driver) => (
-              <Box key={driver.id} flexDirection="row" alignItems="center" style={{ gap: "var(--power-space-sm)" }}>
-                <Box flexGrow={1} minWidth={0}><Text fg={colors.textDim} wrapText>{driver.label}</Text></Box>
-                <RatioBar ratio={driver.points / Math.max(100, selected.rawRiskScore ?? 100)} width={14} color={selectedColor} track />
-                <Text fg={colors.text}>{`+${driver.points.toFixed(1)} pts`}</Text>
-              </Box>
-            ))}
-            {(selected.rawRiskScore ?? 0) > 100 ? <KeyValueRow label="Raw score / displayed cap" value={`${selected.rawRiskScore!.toFixed(1)} / 100`} /> : null}
+            <ScoreDrivers drivers={selected.drivers ?? []} score={selected.riskScore} />
             <SectionHeading title="Weather context" marginTop={1} />
             {(selected.reasons ?? [selected.note]).map((reason) => <Text key={reason} fg={colors.textDim} wrapText>{`• ${reason}`}</Text>)}
             <Box marginTop={1}><Button label="Stress selected day" variant="ghost" compact onPress={() => setView("stress")} /></Box>
@@ -483,6 +481,7 @@ function regionalSpotChart(
 }
 
 export function VicSpotArbitragePane({ width, height, focused }: PaneProps) {
+  useAppLanguage();
   const colors = useThemeColors();
   const live = useVicPowerData();
   useVicPowerPaneStatus("vic-power:arbitrage", live, focused, "market");
@@ -556,7 +555,7 @@ export function VicSpotArbitragePane({ width, height, focused }: PaneProps) {
         {constraintNotice ? (
           <Box flexDirection="row" style={{ gap: "var(--power-space-sm)", padding: "var(--power-space-sm) 0" }}>
             <Badge label="CONSTRAINT" tone="warning" />
-            <Text fg={colors.warning} wrapText>{constraintNotice.title}</Text>
+            <Text data-power-translate={constraintNotice.id.startsWith("demo:") ? undefined : "no"} fg={colors.warning} wrapText>{constraintNotice.title}</Text>
           </Box>
         ) : null}
       </ScrollBox>
