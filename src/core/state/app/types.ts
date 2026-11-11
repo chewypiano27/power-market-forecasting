@@ -116,7 +116,6 @@ export type AppAction =
   | { type: "SET_INITIALIZED" }
   | { type: "TOGGLE_STATUS_BAR" }
   | { type: "SET_THEME"; theme: string }
-  | { type: "SET_LANGUAGE"; language: NonNullable<AppConfig["language"]> }
   | { type: "PREVIEW_THEME"; theme: string | null }
   /** Plugins switched on or off; `focusedPaneId` moves focus off a pane that just went hidden. */
   | { type: "SET_DISABLED_PLUGINS"; disabledPlugins: string[]; focusedPaneId?: string | null }
