@@ -66,7 +66,7 @@ export function ScoreDrivers({ drivers, score }: { drivers: readonly RiskDriver[
           <Text fg={colors.textDim} wrapText>{t(EXPLANATIONS[driver.id] ?? driver.label)}</Text>
         </Box>)}
       </> : <Text fg={colors.textDim} wrapText>{t("No contributing weather drivers.")}</Text>}
-      <Text fg={colors.textMuted} wrapText>{t("Weather stress indicator. These shares are not probabilities or a price forecast.")}</Text>
+      <Text fg={colors.textMuted} wrapText>{t("Weather stress indicator.")}</Text>
     </>}
   </Box>;
 }
