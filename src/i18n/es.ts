@@ -5,6 +5,13 @@
  * fixed-width terminal layouts stay readable.
  */
 export const es: Record<string, string> = {
+  "Change Language": "Cambiar idioma",
+  "Switch interface language": "Cambiar el idioma de la interfaz",
+  "Choose a language, Enter to save": "Elige un idioma y pulsa Intro para guardar",
+  "No languages match": "No hay idiomas coincidentes",
+  "Search by language name or code": "Busca por nombre o código de idioma",
+  "Languages": "Idiomas",
+
   // ── Common UI ────────────────────────────────────────────────
   "Back": "Atrás",
   "Done": "Listo",
