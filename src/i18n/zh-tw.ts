@@ -5,13 +5,6 @@
  * fixed-width terminal layouts stay readable.
  */
 export const zhTW: Record<string, string> = {
-  "Change Language": "變更語言",
-  "Switch interface language": "切換介面語言",
-  "Choose a language, Enter to save": "選擇語言，按 Enter 儲存",
-  "No languages match": "沒有符合的語言",
-  "Search by language name or code": "依語言名稱或代碼搜尋",
-  "Languages": "語言",
-
   // ── Common UI ────────────────────────────────────────────────
   "Back": "返回",
   "Done": "完成",
