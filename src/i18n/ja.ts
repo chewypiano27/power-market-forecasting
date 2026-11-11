@@ -5,13 +5,6 @@
  * fixed-width terminal layouts stay readable.
  */
 export const ja: Record<string, string> = {
-  "Change Language": "言語を変更",
-  "Switch interface language": "表示言語を切り替えます",
-  "Choose a language, Enter to save": "言語を選択し、Enterで保存",
-  "No languages match": "一致する言語がありません",
-  "Search by language name or code": "言語名またはコードで検索",
-  "Languages": "言語",
-
   // ── Common UI ────────────────────────────────────────────────
   "Back": "戻る",
   "Done": "完了",
