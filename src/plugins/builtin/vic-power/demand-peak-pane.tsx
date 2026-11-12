@@ -14,7 +14,7 @@ import type { PaneProps } from "../../../types/plugin";
 import { demandDayStart, demandIssue } from "./demand-features";
 import { demandDisplay } from "./demand-display";
 import { nextDemandTarget } from "./demand-service";
-import { getPeakJournal, latestPeakTarget, loadPeakDemand, peakModel } from "./demand-peak-service";
+import { getPeakJournal, getPeakComparisons, latestPeakTarget, loadPeakDemand, peakModel } from "./demand-peak-service";
 import { validatePeakHistory } from "./demand-peak-history";
 import { peakHistoryCandidate as candidate } from "./demand-peak-history-data";
 
@@ -55,7 +55,7 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
   ];
   const journal = useMemo(() => getPeakJournal(), [forecast.updatedAt]);
   const tracking = period === "live", testing = period === "test";
-  const testRows = useMemo(() => peakTestRows(peakModel, journal), [journal]);
+  const testRows = useMemo(() => peakTestRows(peakModel, journal, getPeakComparisons()), [journal]);
   const testMetrics = peakTestMetrics(testRows);
   const liveMetrics = peakJournalMetrics(journal);
   usePaneStatusFooter({ registrationId: "vic-power:peak-preview", loading: forecast.loading,
