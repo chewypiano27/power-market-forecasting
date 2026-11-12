@@ -1,3 +1,4 @@
+import { useAppLanguage } from "../../../i18n/react";
 import { useMemo } from "react";
 import { ChartTableHeader, DataTableView, PaneStatusBody, QueryBar, scalarPoint, staticSeries, useChartTableSelection, type DataTableColumn } from "../../../components";
 import { usePluginPaneState } from "../../../public/react";
@@ -23,6 +24,7 @@ const probabilityText = (value: number) => value < .01 ? "<1%" : value > .99 ? "
 const panels = [{id:"probability",label:"Probability %",height:1},{id:"demand",label:"Actual peak MW",height:1}];
 
 export function DemandHistoryPane({width,height,focused}: Pick<PaneProps,"width"|"height"|"focused">) {
+  useAppLanguage();
   const colors = useThemeColors();
   const [filter,setFilter] = usePluginPaneState<DemandHistoryFilter>("demand-history-filter","all");
   const [selectedId,setSelectedId] = usePluginPaneState<string|null>("demand-history-selected",null);

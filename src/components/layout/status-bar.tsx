@@ -2,6 +2,7 @@ import { Box, Text, contextMenuDivider, useContextMenu, useUiCapabilities, useUi
 import { useDialog } from "../../ui/dialog";
 import { useCallback, useMemo, useState } from "react";
 import { hoverBg } from "../../theme/colors";
+import { useAppLanguage } from "../../i18n/react";
 import { t, tf } from "../../i18n";
 import { useThemeColors } from "../../theme/theme-context";
 import { useAppDispatch, useAppSelector } from "../../state/app/context";
@@ -99,6 +100,7 @@ const openNewLayout = (event?: StatusBarEvent) => {
 const TERMINAL_NEW_LAYOUT_LABEL = " + ";
 
 export function StatusBar({ onOpenChangelog }: { onOpenChangelog?: (version: string) => void } = {}) {
+  useAppLanguage();
   const { nativePaneChrome, nativeContextMenu } = useUiCapabilities();
   const { showContextMenu } = useContextMenu();
   const dialog = useDialog();
@@ -131,7 +133,7 @@ export function StatusBar({ onOpenChangelog }: { onOpenChangelog?: (version: str
   const layoutTab = (index: number) => {
     const layout = layouts[index]!;
     return {
-      label: `${tabKey(index)}${truncate(layout.name, 14)}`,
+      label: `${tabKey(index)}${truncate(t(layout.name), 14)}`,
       value: String(index),
       reorderable: true,
     };
