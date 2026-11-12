@@ -1,3 +1,5 @@
+import { t } from "../../../../i18n";
+import { languagePickerItems } from "../../language-picker";
 import type { AppState } from "../../../../state/app/context";
 import type {
   CommandDef,
@@ -123,7 +125,7 @@ function buildBindKeyItem(
  * the bar's own matching finds still shows, after the local matches.
  */
 function rootItemSearchText(item: ResultItem): string {
-  return `${item.label} ${item.searchText || ""} ${item.detail} ${item.right || ""}`;
+  return `${item.label} ${t(item.label)} ${item.searchText || ""} ${item.detail} ${t(item.detail)} ${item.right || ""}`;
 }
 
 /** Kept short: the empty bar is still a browse list of everything below. */
@@ -253,8 +255,10 @@ export function buildRootResultModel(options: RootResultModelOptions): RootResul
   } else if (match && match.command.id === "theme") {
     initialIdx = 0;
   } else if (match && match.command.id === "language") {
-    const item = commandToItem(match.command, match.arg);
-    if (item) items.push(item);
+    const picker = languagePickerItems(match.arg, state.config.language, (code) => runDirectCommand(match.command, code));
+    items.push(...picker.items);
+    initialIdx = picker.initialIdx;
+    shortcutRuns = picker.items.length > 0;
   } else if (match && !match.command.hasArg) {
     const item = commandToItem(match.command);
     if (item) items.push(item);
