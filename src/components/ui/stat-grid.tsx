@@ -176,7 +176,7 @@ export function StatGrid({ items, width, columns: columnsProp }: StatGridProps) 
                   ? { gridColumn: `span ${columns - row.length + 1}` }
                   : undefined}
               >
-                <Text fg={colors.textDim} data-power-role="stat-grid-label">
+                <Text fg={colors.textDim} data-power-role="stat-grid-label" data-power-clip="text">
                   {nativePaneChrome ? label : truncateToDisplayWidth(label, labelWidth - 1).padEnd(labelWidth)}
                 </Text>
                 <Text fg={toneColor(item)} attributes={TextAttributes.BOLD} data-power-role="stat-grid-value">{value}</Text>
@@ -186,7 +186,7 @@ export function StatGrid({ items, width, columns: columnsProp }: StatGridProps) 
                   </Box>
                 ) : null}
                 {detail ? (
-                  <Text fg={colors.textDim} data-power-role="stat-grid-detail">{nativePaneChrome ? detail : `  ${detail}`}</Text>
+                  <Text fg={colors.textDim} data-power-role="stat-grid-detail" data-power-clip="text">{nativePaneChrome ? detail : `  ${detail}`}</Text>
                 ) : null}
               </Box>
             );
