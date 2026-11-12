@@ -1,3 +1,4 @@
+import { startPeakTracking } from "../../../plugins/builtin/vic-power/demand-peak-service";
 /** @jsxImportSource react */
 import { createRoot } from "react-dom/client";
 import { App } from "../../../app";
@@ -59,6 +60,10 @@ async function boot() {
   );
   appMounted = true;
   window.setTimeout(releaseBootFrame, 4_000);
+  if (init.windowKind === "main") {
+    const stopPeakTracking = startPeakTracking();
+    window.addEventListener("pagehide", stopPeakTracking, { once: true });
+  }
   if (init.windowKind === "main") startBootFrameRecorder({
     doc: document, root: rootElement,
     save: frame => { void backendRequest("host.saveBootFrame", { frame }).catch(console.error); },

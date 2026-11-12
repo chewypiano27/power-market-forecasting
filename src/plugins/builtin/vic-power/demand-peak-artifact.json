@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 2,
+  "kind": "daily-peak-mw-ridge-corrected",
+  "featureNames": [
+    "temperatureMax",
+    "temperatureMin",
+    "coolingDegrees",
+    "heatingDegrees",
+    "humidityMean",
+    "previousCompletedPeak",
+    "sevenDayMeanPeak",
+    "weekend",
+    "publicHoliday",
+    "seasonSin",
+    "seasonCos",
+    "sameWeekdayPeak"
+  ],
+  "sourceContract": {
+    "model": "gfs_global",
+    "policy": "fixed-lead-48h",
+    "asIssuedFrom": "2024-01-01",
+    "provenanceEvidence": "https://open-meteo.com/en/docs/previous-runs-api documents archived forecasts at fixed 48-hour lead, most variables from January 2024, with GFS temperature from March 2021. Coverage must still pass the collection pilot. Each hourly value has a separate lead reference; no common initialisation is claimed.",
+    "latencyHours": 6,
+    "latencyEvidence": "Conservative availability assumption: each hour reference is valid time minus 48 hours, plus six hours for global-model availability. Latest target-hour reference plus six hours is 13 hours before the fixed issue cutoff. This is an assumption, not a measured publication timestamp."
+  },
+  "means": [
+    20.875654450261777,
+    12.070418848167538,
+    0.6947862129144851,
+    2.2912521815008726,
+    62.31184554973822,
+    6318.373795811518,
+    6333.847427075543,
+    0.2879581151832461,
+    0.03664921465968586,
+    0.04124855054996798,
+    0.007453152474295442,
+    6340.958167539268
+  ],
+  "scales": [
+    6.692928906432815,
+    4.158614264323552,
+    1.5716795490697444,
+    2.3542091401044964,
+    11.397717146062554,
+    1013.927347679945,
+    757.0718470209687,
+    0.4528114829411446,
+    0.18789904130812946,
+    0.7196164119793304,
+    0.6931054950047045,
+    1032.0238846716522
+  ],
+  "weights": [
+    53.46811585632134,
+    289.0898138430862,
+    685.7750392514466,
+    699.9212796591149,
+    50.088147673578064,
+    51.94764298765835,
+    190.83569136071148,
+    -296.0263995136177,
+    -94.76463978465793,
+    69.77382571308864,
+    -292.1412903433228,
+    -57.05454601334373
+  ],
+  "intercept": 6313.218115183246,
+  "trainingEnd": "2025-03-30",
+  "calibrationEnd": "2025-12-30",
+  "testEnd": "2026-10-31",
+  "sourceManifestHash": "ab0ecd99270f1c574aec70c1fe64a627676efcdc07e9698f0a1e554c4d169623",
+  "evaluationSha256": "4f89fb4adc582ec901e4782e25763be7f7390f142c22e7b0f4b51e2e371dbba1",
+  "biasCorrection": {
+    "method": "mean-completed-errors",
+    "days": 28,
+    "lagDays": 2
+  }
+}

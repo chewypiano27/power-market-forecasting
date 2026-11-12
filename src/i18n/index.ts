@@ -1,3 +1,5 @@
+import { createTranslator } from "./translate";
+import { workstationDictionary } from "./workstation";
 import { es } from "./es";
 import { ja } from "./ja";
 import { ko } from "./ko";
@@ -6,12 +8,18 @@ import { zhTW } from "./zh-tw";
 import type { AppLanguage } from "./languages";
 
 const DICTIONARIES: Record<Exclude<AppLanguage, "en">, Record<string, string>> = {
-  es,
-  "zh-CN": zhCN,
+  es: { ...es, ...workstationDictionary("es") },
+  "zh-CN": { ...zhCN, ...workstationDictionary("zh-CN") },
   "zh-TW": zhTW,
   ja,
   ko,
 };
+
+export const translateUiText = createTranslator(DICTIONARIES);
+
+export function getUiLocale(): string {
+  return currentLanguage === "en" ? "en-AU" : currentLanguage === "es" ? "es-ES" : currentLanguage;
+}
 
 function normalizeLanguageTag(tag: string): AppLanguage | null {
   const normalized = tag
@@ -69,6 +77,7 @@ let currentLanguage: AppLanguage = detectLanguage();
 const languageListeners = new Set<() => void>();
 
 function updateLanguage(language: AppLanguage): void {
+  if (typeof document !== "undefined") document.documentElement.lang = language;
   if (currentLanguage === language) return;
   currentLanguage = language;
   for (const listener of languageListeners) listener();
@@ -110,7 +119,7 @@ export function applyLanguageFromConfig(config: { language?: string } | null | u
  */
 export function t(text: string): string {
   if (currentLanguage === "en") return text;
-  return DICTIONARIES[currentLanguage][text] ?? text;
+  return DICTIONARIES[currentLanguage][text] ?? translateUiText(text, currentLanguage);
 }
 
 /**
@@ -122,7 +131,7 @@ export function t(text: string): string {
 export function tc(context: string, text: string): string {
   if (currentLanguage === "en") return text;
   const dictionary = DICTIONARIES[currentLanguage];
-  return dictionary[`${context}${text}`] ?? dictionary[text] ?? text;
+  return dictionary[`${context}${text}`] ?? dictionary[text] ?? translateUiText(text, currentLanguage);
 }
 
 /**

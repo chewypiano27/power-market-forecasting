@@ -1,3 +1,5 @@
+import { csvFields } from "./csv";
+import { fetchNemwebDispatch } from "./nemweb-dispatch";
 import { httpFetch, type HttpFetchTransport } from "../../../utils/http-transport";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
 import { hourlyWeatherScore, weatherRisk } from "./weather-risk";
@@ -179,25 +181,6 @@ export function createVicPowerDemoSnapshot(): VicPowerSnapshot {
   };
 }
 
-function csvFields(line: string): string[] {
-  const fields: string[] = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]!;
-    if (char === '"') {
-      if (quoted && line[index + 1] === '"') {
-        value += '"';
-        index += 1;
-      } else quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      fields.push(value.trim());
-      value = "";
-    } else value += char;
-  }
-  fields.push(value.trim());
-  return fields;
-}
 
 export function parseAemoPriceDemandCsv(csv: string, regionId = VIC_REGION_ID): AemoPriceDemandRow[] {
   const lines = csv.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
@@ -355,7 +338,7 @@ async function fetchAemoLive(fetcher: HttpFetchTransport, now: Date): Promise<{
   let summaryError: unknown;
   let sourceUrl = `${AEMO_DASHBOARD_BASE}/ELEC_NEM_SUMMARY`;
   const warnings: string[] = [];
-  const [summary, fiveMinute] = await Promise.all([
+  let [summary, fiveMinute] = await Promise.all([
     responseJson<AemoSummaryPayload>(sourceUrl, fetcher).catch(error => { summaryError = error; return {} as AemoSummaryPayload; }),
     responseJson<AemoFiveMinutePayload>(`${AEMO_DASHBOARD_BASE}/5MIN`, fetcher, {
       method: "POST",
@@ -363,9 +346,18 @@ async function fetchAemoLive(fetcher: HttpFetchTransport, now: Date): Promise<{
       body: JSON.stringify({ timeScale: ["5MIN"] }),
     }).catch(() => ({ "5MIN": [] })),
   ]);
+  const payloadRows = Array.isArray(summary?.ELEC_NEM_SUMMARY) ? summary.ELEC_NEM_SUMMARY as AemoSummaryRow[] : [];
+  const payloadPrices = Array.isArray(summary?.ELEC_NEM_SUMMARY_PRICES) ? summary.ELEC_NEM_SUMMARY_PRICES as AemoPriceRow[] : [];
+  const vicPrice = payloadPrices.find(row => row && row.REGIONID === VIC_REGION_ID)?.RRP;
+  if (!summaryError && !payloadRows.some(row => row && row.REGIONID === VIC_REGION_ID
+    && finiteInput(row.PRICE ?? vicPrice) !== null && finiteInput(row.TOTALDEMAND) !== null
+    && Number.isFinite(dispatchTime(String(row.SETTLEMENTDATE ?? "")))
+    && dispatchTime(String(row.SETTLEMENTDATE)) <= now.getTime() + 5 * 60_000)) {
+    summaryError = new Error("AEMO live summary returned no valid VIC1 record.");
+  }
   if (summaryError) {
-    const published = (Array.isArray(fiveMinute["5MIN"]) ? fiveMinute["5MIN"] as AemoFiveMinuteRow[] : [])
-      .filter(row => row.PERIODTYPE === "ACTUAL" && Number.isFinite(dispatchTime(String(row.SETTLEMENTDATE ?? "")))
+    const published = (Array.isArray(fiveMinute?.["5MIN"]) ? fiveMinute["5MIN"] as AemoFiveMinuteRow[] : [])
+      .filter(row => row && row.PERIODTYPE === "ACTUAL" && Number.isFinite(dispatchTime(String(row.SETTLEMENTDATE ?? "")))
         && dispatchTime(String(row.SETTLEMENTDATE)) <= now.getTime() && finiteInput(row.RRP) !== null && finiteInput(row.TOTALDEMAND) !== null);
     const latest = new Map<string, AemoFiveMinuteRow>();
     for (const row of published) {
@@ -373,25 +365,32 @@ async function fetchAemoLive(fetcher: HttpFetchTransport, now: Date): Promise<{
       const before = latest.get(region);
       if (!before || dispatchTime(String(row.SETTLEMENTDATE)) > dispatchTime(String(before.SETTLEMENTDATE))) latest.set(region, row);
     }
-    if (!latest.has(VIC_REGION_ID)) return fetchAemoPublishedFiles(fetcher, now, summaryError);
-    fiveMinute["5MIN"] = published;
-    summary.ELEC_NEM_SUMMARY = [...latest.values()].map(row => ({ ...row, PRICE: row.RRP, PRICE_STATUS: "ACTUAL" }));
+    if (!latest.has(VIC_REGION_ID)) {
+      try {
+        const dispatch = await fetchNemwebDispatch(fetcher, now);
+        return { ...dispatch, notices: await fetchAemoNemwebNotices(fetcher),
+          warnings: ["AEMO dashboard unavailable. Using published five-minute dispatch reports from NEMWeb."] };
+      } catch { return fetchAemoPublishedFiles(fetcher, now, summaryError); }
+    }
+    fiveMinute = { "5MIN": published };
+    summary = { ELEC_NEM_SUMMARY: [...latest.values()].map(row => ({ ...row, PRICE: row.RRP, PRICE_STATUS: "ACTUAL" })) };
     sourceUrl = `${AEMO_DASHBOARD_BASE}/5MIN`;
     warnings.push("AEMO summary unavailable. Using published dispatch observations; notices and interchange are unavailable.");
   }
   const priceRows = Array.isArray(summary.ELEC_NEM_SUMMARY_PRICES)
     ? summary.ELEC_NEM_SUMMARY_PRICES as AemoPriceRow[]
     : [];
-  const fcasByRegion = new Map(priceRows.map((row) => [String(row.REGIONID ?? ""), row]));
+  const fcasByRegion = new Map(priceRows.filter(row => row && typeof row === "object").map((row) => [String(row.REGIONID ?? ""), row]));
   const summaryRows = Array.isArray(summary.ELEC_NEM_SUMMARY) ? summary.ELEC_NEM_SUMMARY as AemoSummaryRow[] : [];
   const regions = summaryRows.flatMap((row): RegionalMarketSnapshot[] => {
+    if (!row || typeof row !== "object") return [];
     const regionId = String(row.REGIONID ?? "");
     if (!regionId) return [];
     const prices = fcasByRegion.get(regionId) ?? {};
     const price = finiteInput(row.PRICE ?? prices.RRP);
     const totalDemand = finiteInput(row.TOTALDEMAND);
     const settlementDate = String(row.SETTLEMENTDATE ?? "");
-    if (price === null || totalDemand === null || !Number.isFinite(dispatchTime(settlementDate))) return [];
+    if (price === null || totalDemand === null || (!Number.isFinite(dispatchTime(settlementDate)) || dispatchTime(settlementDate) > now.getTime() + 5 * 60_000)) return [];
     const fcas = Object.fromEntries(Object.entries(prices)
       .filter(([key, value]) => key.endsWith("RRP") && key !== "RRP" && Number.isFinite(Number(value)))
       .map(([key, value]) => [key, Number(value)]));
@@ -410,14 +409,15 @@ async function fetchAemoLive(fetcher: HttpFetchTransport, now: Date): Promise<{
   });
   const vic = regions.find((row) => row.regionId === VIC_REGION_ID);
   if (!vic) throw new Error("AEMO live summary returned no VIC1 record.");
-  const fiveMinuteRows = Array.isArray(fiveMinute["5MIN"]) ? fiveMinute["5MIN"] as AemoFiveMinuteRow[] : [];
+  const fiveMinuteRows = Array.isArray(fiveMinute?.["5MIN"]) ? fiveMinute["5MIN"] as AemoFiveMinuteRow[] : [];
   const regionalMarket = fiveMinuteRows.flatMap((row): RegionalPricePoint[] => {
+    if (!row || typeof row !== "object") return [];
     const regionId = String(row.REGIONID ?? "");
     if (!["VIC1", "NSW1", "SA1"].includes(regionId) || row.PERIODTYPE !== "ACTUAL") return [];
     const price = finiteInput(row.RRP);
     const demand = finiteInput(row.TOTALDEMAND);
     const timestamp = String(row.SETTLEMENTDATE ?? "");
-    if (!Number.isFinite(dispatchTime(timestamp)) || price === null || demand === null) return [];
+    if (!Number.isFinite(dispatchTime(timestamp)) || dispatchTime(timestamp) > now.getTime() + 5 * 60_000 || price === null || demand === null) return [];
     return [{ regionId: regionId as RegionalPricePoint["regionId"], timestamp, price, demand }];
   }).sort((left, right) => left.timestamp.localeCompare(right.timestamp) || left.regionId.localeCompare(right.regionId));
   // The summary and rolling-history endpoints can publish at different times.
