@@ -1,4 +1,3 @@
-import { extendPeakComparison, readPeakComparisons } from "./demand-peak-comparison";
 import { settlePeakForecasts } from "./demand-peak-settlement";
 import { savedPeakCalculation, validPeakCalculation } from "./demand-peak-calculation";
 import type { PluginPersistence } from "../../../types/plugin";
@@ -29,7 +28,6 @@ const cache = createPluginCache<ReadyPeak>({ kind: "vic-demand-peak-preview", so
 let persistence: PluginPersistence | null = null;
 export const attachPeakPersistence = (store: PluginPersistence) => { persistence = store; cache.attach(store); };
 export const resetPeakPersistence = () => { persistence = null; cache.reset(); };
-export const getPeakComparisons = () => readPeakComparisons(persistence, peakModel);
 export const getPeakJournal = () => peakModel ? readPeakJournal(persistence, peakModel.evaluationSha256) : [];
 function firstSavedForecast(result: ReadyPeak): ReadyPeak {
   const first = getPeakJournal().find(entry => entry.targetDate === result.targetDate);
@@ -44,7 +42,7 @@ export function startPeakTracking(): () => void {
     const now = Date.now(), target = latestPeakTarget(now);
     if (!settling && now - settlementAt >= 300_000) {
       settling = true; settlementAt = now;
-      void Promise.allSettled([settlePeakForecasts(persistence, peakModel, now), extendPeakComparison(persistence, peakModel, now)]).finally(() => { settling = false; });
+      void Promise.allSettled([settlePeakForecasts(persistence, peakModel, now)]).finally(() => { settling = false; });
     }
     if (busy) return;
     if (getPeakJournal().some(entry => entry.targetDate === target) || now - attemptedAt < 60_000) return;
