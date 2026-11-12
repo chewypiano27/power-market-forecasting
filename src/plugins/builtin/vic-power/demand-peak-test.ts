@@ -4,7 +4,7 @@ import { shiftDemandDate } from "./demand-features";
 import data from "./demand-peak-test-data.json";
 export type PeakTestRow = [string, number, number | null, number];
 /** Archived-input calculations remain separate from the first-saved forecast journal. */
-export function peakTestRows(model: PeakArtifact | null, journal: readonly PeakJournalEntry[]): PeakTestRow[] {
+export function peakTestRows(model: PeakArtifact | null, journal: readonly PeakJournalEntry[], comparisons: readonly PeakTestRow[] = []): PeakTestRow[] {
   if (!model || data.evaluationSha256 !== model.evaluationSha256 || data.sourceManifestHash !== model.sourceManifestHash
     || model.trainingEnd >= data.fromDate || model.calibrationEnd >= data.fromDate || model.testEnd >= data.fromDate) return [];
   const rows: PeakTestRow[] = [];
@@ -15,10 +15,13 @@ export function peakTestRows(model: PeakArtifact | null, journal: readonly PeakJ
     rows.push([day as string, forecast, actual, weekly]);
   }
   if (rows.at(-1)?.[0] !== data.through) return [];
+  for (const row of comparisons) {
+    if (row[0] > data.through && !rows.some(existing => existing[0] === row[0])) rows.push(row);
+  }
   for (const entry of journal) {
     if (entry.targetDate < data.fromDate) continue;
-    const row: PeakTestRow = [entry.targetDate, entry.peakMw, entry.actualMw ?? null, entry.baselineMw];
     const index = rows.findIndex(row => row[0] === entry.targetDate);
+    const row: PeakTestRow = [entry.targetDate, entry.peakMw, entry.actualMw ?? rows[index]?.[2] ?? null, entry.baselineMw];
     if (index < 0) rows.push(row); else rows[index] = row;
   }
   return rows.sort((a, b) => a[0].localeCompare(b[0]));
