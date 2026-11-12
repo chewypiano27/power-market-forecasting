@@ -43,14 +43,14 @@ export async function fetchDemandProbability(candidate: unknown, targetDate: str
 }
 
 /** Shared, issue-safe inputs for the probability and peak-MW models. */
-export async function fetchDemandInputs(targetDate: string, now: number, fetcher: HttpFetchTransport = httpFetch, signal?: AbortSignal, correctionDays = 0) {
+export async function fetchDemandInputs(targetDate: string, now: number, fetcher: HttpFetchTransport = httpFetch, signal?: AbortSignal, correctionDays = 0, includeTarget = false) {
   if (!Number.isInteger(correctionDays) || correctionDays < 0 || correctionDays > 56) throw new Error("Invalid completed-error window");
   const text = async (url: string) => {
     const response = await fetcher(url, { signal });
     if (!response.ok) throw new Error(`Demand input request failed (${response.status})`);
     return response.text();
   };
-  const months = [...new Set(Array.from({ length: correctionDays ? correctionDays + 8 : 7 }, (_, index) => shiftDemandDate(targetDate, -2-index).slice(0, 7)))];
+  const months = [...new Set([...Array.from({ length: correctionDays ? correctionDays + 8 : 7 }, (_, index) => shiftDemandDate(targetDate, -2-index).slice(0, 7)), ...(includeTarget ? [targetDate.slice(0, 7)] : [])])];
   const weatherUrl = new URL(demandForecastUrl(targetDate));
   if (correctionDays) weatherUrl.searchParams.set("start_date", new Date(demandIssue(shiftDemandDate(targetDate, -correctionDays - 1)).start).toISOString().slice(0, 10));
   const [weather, ...market] = await Promise.all([
