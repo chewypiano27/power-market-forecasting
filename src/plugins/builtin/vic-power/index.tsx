@@ -2,6 +2,7 @@ import type { WorkstationPlugin } from "../../../types/plugin";
 import { attachVicPowerPersistence, resetVicPowerPersistence } from "./cache";
 import { VicDemandPricePane, VicMarketGlancePane, VicSpotArbitragePane } from "./panes";
 
+import { attachPeakPersistence, resetPeakPersistence } from "./demand-peak-service";
 import { attachDemandPersistence, resetDemandPersistence } from "./demand-service";
 
 export const vicPowerPlugin: WorkstationPlugin = {
@@ -22,10 +23,12 @@ export const vicPowerPlugin: WorkstationPlugin = {
   setup(ctx) {
     attachVicPowerPersistence(ctx.persistence);
     attachDemandPersistence(ctx.persistence);
+    attachPeakPersistence(ctx.persistence);
   },
   dispose() {
     resetVicPowerPersistence();
     resetDemandPersistence();
+    resetPeakPersistence();
   },
   panes: [
     { id: "vic-market-glance", name: "Market Desk", icon: "M", component: VicMarketGlancePane, defaultPosition: "left" },
