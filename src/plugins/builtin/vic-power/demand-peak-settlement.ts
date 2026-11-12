@@ -14,14 +14,14 @@ export async function settlePeakForecasts(store: PluginPersistence, model: PeakA
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error("Actual demand retrieval timed out")); }, timeoutMs); });
-    const results = await Promise.race([deadline, Promise.allSettled(months.map(async month => {
+    await Promise.race([deadline, Promise.allSettled(months.map(async month => {
       const response = await fetcher(`https://www.aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_${month.replace("-", "")}_VIC1.csv`, { signal: controller.signal });
       if (!response.ok) throw new Error(`Actual demand request failed (${response.status})`);
-      return dailyDemand(parseDemandObservations(await response.text()));
+      const history = dailyDemand(parseDemandObservations(await response.text()));
+      // Save each completed month immediately; another month's timeout must not discard it.
+      if (!controller.signal.aborted) recordPeakJournal(store, model, pending[0]!, history, now);
     }))]);
-    const history = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
-    recordPeakJournal(store, model, pending[0]!, history, now);
-    return readPeakJournal(store, model.evaluationSha256).filter(entry => pending.some(prior => prior.targetDate === entry.targetDate) && entry.actualMw !== undefined).length;
-  } catch { return 0; /* Pending outcomes retry without changing the saved prediction. */ }
+  } catch { /* Unavailable months retry without discarding outcomes already saved. */ }
   finally { clearTimeout(timer); controller.abort(); }
+  return readPeakJournal(store, model.evaluationSha256).filter(entry => pending.some(prior => prior.targetDate === entry.targetDate) && entry.actualMw !== undefined).length;
 }
