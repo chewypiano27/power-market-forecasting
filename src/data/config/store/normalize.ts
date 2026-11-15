@@ -1,4 +1,4 @@
-import type { AppConfig, ChartPreferences, KeybindingsConfig, LayoutConfig, OnboardingProgress, LayoutOrigin, RecentCommand, SavedLayout, TelemetryConfig } from "../../../types/config";
+import type { AppConfig, ChartPreferences, KeybindingsConfig, LayoutConfig, OnboardingProgress, LayoutOrigin, RecentCommand, SavedLayout } from "../../../types/config";
 import {
   cloneLayout,
   createDefaultConfig,
@@ -15,7 +15,6 @@ import { sanitizeSavedPaneState } from "./pane-state";
 import { isRecord } from "../../../utils/guards";
 import { debugLog } from "../../../utils/debug-log";
 import { DEFAULT_THEME, themes } from "../../../theme/themes";
-import { sanitizeStarPrompt } from "../../../app/star-prompt/model";
 import { sanitizeCommandBarOpens } from "../../../app/command-bar-intro";
 
 const configLog = debugLog.createLogger("config");
@@ -91,8 +90,6 @@ export function normalizeLoadedConfig(
     onboardingProgress,
     lastLaunchedVersion: typeof candidate.lastLaunchedVersion === "string" ? candidate.lastLaunchedVersion : undefined,
     ...withKeybindings(sanitizeKeybindings(candidate.keybindings)),
-    ...withTelemetry(sanitizeTelemetry(candidate.telemetry)),
-    ...withStarPrompt(sanitizeStarPrompt(candidate.starPrompt)),
   };
 
   const needsSave =
@@ -150,36 +147,13 @@ export function normalizeConfigForSave(config: AppConfig): AppConfig {
   };
   delete persisted.keybindings;
   Object.assign(persisted, withKeybindings(sanitizeKeybindings(config.keybindings)));
-  delete persisted.telemetry;
-  Object.assign(persisted, withTelemetry(sanitizeTelemetry(config.telemetry)));
-  delete persisted.starPrompt;
-  Object.assign(persisted, withStarPrompt(sanitizeStarPrompt(config.starPrompt)));
-  delete persisted.updates;
+
 
   return persisted;
 }
 
 function withKeybindings(keybindings: KeybindingsConfig | undefined): Pick<AppConfig, "keybindings"> {
   return keybindings ? { keybindings } : {};
-}
-
-function withTelemetry(telemetry: TelemetryConfig | undefined): Pick<AppConfig, "telemetry"> {
-  return telemetry ? { telemetry } : {};
-}
-
-function withStarPrompt(starPrompt: AppConfig["starPrompt"]): Pick<AppConfig, "starPrompt"> {
-  return starPrompt ? { starPrompt } : {};
-}
-
-/** Only the switches that are set survive; an empty object is the same as none. */
-function sanitizeTelemetry(value: unknown): TelemetryConfig | undefined {
-  if (!isRecord(value)) return undefined;
-  const telemetry: TelemetryConfig = {
-    ...(typeof value.crashReports === "boolean" ? { crashReports: value.crashReports } : {}),
-    ...(typeof value.usage === "boolean" ? { usage: value.usage } : {}),
-    ...(typeof value.attention === "boolean" ? { attention: value.attention } : {}),
-  };
-  return Object.keys(telemetry).length > 0 ? telemetry : undefined;
 }
 
 /**

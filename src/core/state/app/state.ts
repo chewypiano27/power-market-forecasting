@@ -60,9 +60,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_KEYBINDINGS":
       return { ...state, config: updateKeybindingsConfig(state.config, action.keybindings) };
 
-    case "SET_STAR_PROMPT":
-      return { ...state, config: { ...state.config, starPrompt: action.starPrompt } };
-
     case "RECORD_COMMAND": {
       // Kept in config, not beside it like the recent tickers: a pane run is
       // followed by a layout save, which writes the config as it stands and

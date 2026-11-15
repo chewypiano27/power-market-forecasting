@@ -200,51 +200,6 @@ export interface KeybindingsConfig {
   commands?: Record<string, string>;
 }
 
-/** What the app sends home on its own. Absent means every default applies. */
-export interface TelemetryConfig {
-  /**
-   * Automatic crash reports (uncaught errors, render crashes, plugin load
-   * failures) to Workstation's API. `false` turns them off; absent means on.
-   */
-  crashReports?: boolean;
-  /**
-   * Anonymous counts of which functions are opened and which are on screen
-   * at launch, to Workstation's API, and, when signed in, the searches finished in
-   * the command bar, kept with the account to improve search. `false` turns
-   * both off; absent means on.
-   */
-  usage?: boolean;
-  /** Ticker-level research counts. Only an explicit true opts in; absent is OFF. */
-  attention?: boolean;
-}
-
-/**
- * Which builds the app updates to. `stable` is the tagged releases; `nightly`
- * adds the daily prerelease built from main.
- */
-export type UpdateChannel = "stable" | "nightly";
-
-/** How this machine updates the app. Absent means the stable channel. */
-export interface UpdatesConfig {
-  /** Only `nightly` is saved; stable is the default. `VIC1_UPDATE_CHANNEL` overrides it. */
-  channel?: UpdateChannel;
-}
-
-/**
- * The one-time line in the terminal's status bar asking to star Vic1 on
- * GitHub. Absent means on and not shown yet. Kept on this machine only.
- */
-export interface StarPromptConfig {
-  /** `false` turns the line off; absent means on. */
-  enabled?: boolean;
-  /** Local days (`YYYY-MM-DD`) the terminal app was opened on, oldest first, until the line shows. */
-  days?: string[];
-  /** When the line showed. Once set it never shows again. */
-  shownAt?: string;
-  /** How it ended: the repository was opened, the line was dismissed, or it timed out. */
-  outcome?: "opened" | "dismissed" | "expired";
-}
-
 /**
  * One recent command-bar run: `id` is `pane-template:<templateId>`, `label`
  * its name when it ran, and `arg` a ticker it ran with (never free text).
@@ -307,10 +262,6 @@ export interface AppConfig {
   onboardingProgress?: OnboardingProgress;
   /** Key overrides for this machine. Absent means every default applies. */
   keybindings?: KeybindingsConfig;
-  telemetry?: TelemetryConfig;
-  starPrompt?: StarPromptConfig;
-  /** The update channel. Kept on this machine only. */
-  updates?: UpdatesConfig;
   /**
    * The IANA zone (`Asia/Tokyo`) the CLI and function reports show a local
    * time in, beside every UTC time. Absent prints UTC alone. Trading-day dates
@@ -809,7 +760,6 @@ export function createDefaultConfig(dataDir: string): AppConfig {
   const layout = cloneLayout(DEFAULT_HOME_LAYOUT);
   return {
     dataDir,
-    telemetry: { crashReports: false, usage: false, attention: false },
     configVersion: CURRENT_CONFIG_VERSION,
     refreshIntervalMinutes: 30,
     layout,
