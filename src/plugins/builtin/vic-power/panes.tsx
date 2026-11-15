@@ -9,7 +9,6 @@ import {
   CompositeChart,
   KeyValueRow,
   PaneStatusBody,
-  QueryBar,
   RatioBar,
   SectionHeading,
   StatGrid,
@@ -26,17 +25,15 @@ import {
 import { usePaneRefreshKey } from "../../../components/data-table/table-pane";
 import { useAsyncResource, useAutoRefresh, useUpdatedAgo, usePaneVisible, usePluginConfigState, usePluginPaneState } from "../../../public/react";
 import { useThemeColors } from "../../../theme/theme-context";
-import { blendHex } from "../../../theme/color-utils";
 import type { ResolvedSeries } from "../../../time-series/types";
 import type { PaneProps } from "../../../types/plugin";
 import { Box, ScrollBox, Text, TextAttributes } from "../../../ui";
 import { getCachedVicPowerSnapshot, loadVicPowerSnapshot } from "./cache";
 import { createVicPowerDemoSnapshot, type PowerNewsItem, type RegionalMarketSnapshot, type RegionalPricePoint } from "./data";
-import { NEM_TIME_ZONE, WEATHER_TIME_ZONE, weatherChartDate, chartDate, dispatchTime, marketComparisons, marketIsFresh, regionalDispatches, separationWindows, SPOT_REGIONS } from "./analytics";
+import { NEM_TIME_ZONE, WEATHER_TIME_ZONE, weatherChartDate, chartDate, dispatchTime, marketComparisons, marketIsFresh, regionalDispatches, SPOT_REGIONS } from "./analytics";
 import { useAppDispatch, useAppStateRef, syncConfigActiveLayoutState } from "../../../state/app/context";
 import { installWorkstationLayouts } from "./workspaces";
-import type { SeparationWindow } from "./analytics";
-import { type TraderDay, type VicMarketPoint, type Volatility } from "./model";
+import { vicMarketPoints, type TraderDay, type VicMarketPoint, type Volatility } from "./model";
 
 import { bundledDemandModel, loadDemandProbability, nextDemandTarget } from "./demand-service";
 import { TemperatureStressPane } from "./temperature-stress-pane";
@@ -48,8 +45,8 @@ import { FILL_REST } from "../../../components/ui/fill";
 
 const TEMPERATURE_KEY = "temperature-deviation";
 const GLANCE_PANELS = [{ id: "price", label: "VIC1 RRP", height: 1 }];
-const RISK_PANELS = [{ id: "temperature", label: "Melbourne temperature °C", height: 1 }, { id: "risk", label: "Hourly weather stress score", height: 1 }];
-const SPOT_PANELS = [{ id: "regional-price", label: "Regional RRP $/MWh", height: 2 }, { id: "regional-spread", label: "VIC minus neighbour $/MWh", height: 1 }];
+const RISK_PANELS = [{ id: "temperature", label: "Melbourne temperature °C", height: 1 }, { id: "risk", label: "Hourly weather-load score", height: 1 }];
+const SPOT_PANELS = [{ id: "regional-price", label: "Regional RRP $/MWh", height: 2 }];
 const LIVE_REFRESH_MS = 5 * 60 * 1000;
 const signed = (value: number, digits = 0) => `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 
@@ -385,20 +382,11 @@ function OpportunityRow({ vic, region }: { vic: RegionalMarketSnapshot; region: 
   );
 }
 
-function addFiveMinutes(timestamp: string): string {
-  const date = chartDate(timestamp);
-  if (Number.isNaN(date.getTime())) return timestamp.slice(11, 16);
-  date.setUTCMinutes(date.getUTCMinutes() + 5);
-  return new Date(date.getTime() + 10 * 3_600_000).toISOString().slice(11, 16);
-}
-
 function regionalSpotChart(
   points: readonly RegionalPricePoint[],
   colors: ReturnType<typeof useThemeColors>,
-): { series: ResolvedSeries[]; windows: SeparationWindow[] } {
+): ResolvedSeries[] {
   const rows = regionalDispatches(points);
-  const windows = separationWindows(rows);
-  const arbitrageTimes = new Set(windows.flatMap((window) => window.timestamps));
   const regionColors: Record<RegionalPricePoint["regionId"], string> = {
     VIC1: colors.warning,
     NSW1: colors.borderFocused,
@@ -408,25 +396,12 @@ function regionalSpotChart(
     const base = staticSeries(rows.map((point) => scalarPoint(chartDate(point.timestamp), point.prices[region] ?? null)), {
       id: `regional-price:${region}`,
       label: region.replace("1", ""),
-      color: blendHex(regionColors[region], colors.bg, 0.48),
-      calendarSpaced: true,
-    });
-    const highlight = staticSeries(rows.map((point) => scalarPoint(chartDate(point.timestamp), arbitrageTimes.has(point.timestamp) ? point.prices[region] ?? null : null)), {
-      id: `regional-price:${region}:separation`,
-      label: `${region.replace("1", "")} separation`,
       color: regionColors[region],
       calendarSpaced: true,
     });
-    return [base, highlight].map((entry) => ({ ...entry, panelId: "regional-price", unit: "$/MWh", unitGroup: "regional-spot" }));
+    return [{ ...base, panelId: "regional-price", unit: "$/MWh", unitGroup: "regional-spot" }];
   });
-  const spreads = (["NSW1", "SA1"] as const).map((region) => ({
-    ...staticSeries(rows.map((row) => scalarPoint(chartDate(row.timestamp),
-      row.prices.VIC1 === undefined || row.prices[region] === undefined ? null : row.prices.VIC1 - row.prices[region]!)), {
-      id: `regional-spread:${region}`, label: `VIC − ${regionLabel(region)}`, color: regionColors[region], calendarSpaced: true,
-    }),
-    panelId: "regional-spread", unit: "$/MWh", unitGroup: "regional-spread",
-  }));
-  return { series: [...series, ...spreads], windows };
+  return series;
 }
 
 export function VicSpotArbitragePane({ width, height, focused }: PaneProps) {
@@ -442,7 +417,6 @@ export function VicSpotArbitragePane({ width, height, focused }: PaneProps) {
       "Bright windows mark a gross cross-region spread of at least $30/MWh for two consecutive dispatch intervals. Losses, constraints and available interconnector capacity are not modelled.",
     ],
   });
-  const [focusedArbitrageStart, setFocusedArbitrageStart] = usePluginPaneState<string | null>("regional-arbitrage-focus", null);
   const vic = live.data?.regions.find((region) => region.regionId === "VIC1");
   const alignedRegions = (live.data?.regions ?? []).filter((region) => SPOT_REGIONS.includes(region.regionId as typeof SPOT_REGIONS[number]) && vic && dispatchTime(region.settlementDate) === dispatchTime(vic.settlementDate));
   const connected = alignedRegions.filter((region) => ["NSW1", "SA1"].includes(region.regionId))
@@ -457,41 +431,17 @@ export function VicSpotArbitragePane({ width, height, focused }: PaneProps) {
     { label: "VIC net flow", value: vic?.netInterchange != null ? `${signed(vic.netInterchange)} MW` : "—" },
   ];
   const spotChart = useMemo(() => regionalSpotChart(live.data?.regionalMarket ?? [], colors), [colors, live.data?.regionalMarket]);
-  const focusedArbitrageWindow = spotChart.windows.find((window) => window.start === focusedArbitrageStart) ?? null;
-  const chartViewport = useMemo(() => {
-    if (!focusedArbitrageWindow) return undefined;
-    const start = chartDate(focusedArbitrageWindow.start);
-    const end = chartDate(focusedArbitrageWindow.end);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
-    start.setUTCMinutes(start.getUTCMinutes() - 10);
-    end.setUTCMinutes(end.getUTCMinutes() + 15);
-    return { start, end };
-  }, [focusedArbitrageWindow]);
   // Reserve the current comparison table first; a short trader pane omits the history band.
   const chartHeight = Math.max(0, Math.min(26, Math.floor(height * 0.55), height - statGridRows(stats, width) - 9));
   if (!vic) return <PaneStatusBody loading={live.loading} error={live.error} empty subject="Regional prices" emptyTitle="No regional prices available." retry={{ onRetry: live.reload }} width={width} height={height} />;
   return (
     <Box width={width} height={height} flexDirection="column" position="relative">
-      {chartHeight >= 6 ? <QueryBar width={width} filters={[{ id: "separation-window", label: "Window", value: focusedArbitrageStart ?? "session", defaultValue: "session",
-        options: [{ value: "session", label: "Full session" }, ...spotChart.windows.map((window) => ({ value: window.start,
-          label: `${window.start.slice(11, 16)}–${addFiveMinutes(window.end)} · avg $${window.averageDispersion.toFixed(0)} · max $${window.maximumDispersion.toFixed(0)}` }))],
-        onChange: (value: string) => setFocusedArbitrageStart(value === "session" ? null : value),
-      }]} /> : null}
       <StatGrid items={stats} width={width} />
-      {chartHeight >= 6 && spotChart.series.some((entry) => entry.points.length > 1) ? (
-        <>
-          <Box>
-            <CompositeChart series={spotChart.series} panels={SPOT_PANELS} width={width} height={chartHeight} focused={focused}
-              legendSeries={spotChart.series.filter((entry) => !entry.id.endsWith(":separation"))}
-              levels={{ seriesId: "regional-spread:NSW1", items: [{ id: "zero", value: 0, color: colors.textDim, label: "Parity", dashed: true, editable: false, actionable: false }] }}
-              navigable viewport={chartViewport} viewportResetKey={focusedArbitrageWindow?.start ?? "full-session"}
-              showLegend showTimeAxis timeZone={NEM_TIME_ZONE} formatValue={(value) => `$${value.toFixed(2)}`} />
-          </Box>
-          <Box paddingX={1} flexDirection="row" flexWrap="wrap" style={{ gap: "var(--power-space-sm)" }}>
-            <Badge label="BRIGHT = PRICE SEPARATION" tone="warning" />
-            {!spotChart.windows.length ? <Text fg={colors.textDim}>No sustained regional spread above $30/MWh in the loaded session.</Text> : null}
-          </Box>
-        </>
+      {chartHeight >= 6 && spotChart.some((entry) => entry.points.length > 1) ? (
+        <Box>
+          <CompositeChart series={spotChart} panels={SPOT_PANELS} width={width} height={chartHeight} focused={focused}
+            navigable showLegend showTimeAxis timeZone={NEM_TIME_ZONE} formatValue={(value) => `$${value.toFixed(2)}`} />
+        </Box>
       ) : null}
       <ScrollBox flexGrow={1} minHeight={0} flexDirection="column" paddingX={1} paddingY={1} style={{ gap: "var(--power-space-sm)" }}>
         <SectionHeading title="REGIONAL SPREAD MONITOR" />
