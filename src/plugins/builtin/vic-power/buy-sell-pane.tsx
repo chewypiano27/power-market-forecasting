@@ -40,6 +40,30 @@ function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellH
   })).sort((a, b) => a.time.localeCompare(b.time));
 }
 
+function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
+  const from = "2026-11-01T00:00:00";
+  const through = "2026-11-16T00:00:00";
+  const series: { time: string; value: number }[] = [];
+  let gross = 0;
+  let calls = 0;
+  let correct = 0;
+  for (let index = 168; index < history.length; index += 1) {
+    const actual = history[index]!;
+    if (actual.time < from || actual.time >= through) continue;
+    const prior = history.slice(index - 168, index);
+    const decision = decideBuySell(prior, actual.time, victorianCalendarAnnotation(actual.time.slice(0, 10)));
+    if (decision.status === "ready" && decision.action !== "HOLD") {
+      const move = actual.price - prior.at(-1)!.price;
+      const side = decision.action === "BUY" ? 1 : -1;
+      gross += side * move;
+      calls += 1;
+      if ((side === 1 && move > 0) || (side === -1 && move < 0)) correct += 1;
+    }
+    series.push({ time: actual.time, value: gross });
+  }
+  return { series, calls, correct, hitRate: calls ? correct / calls : 0, gross };
+}
+
 async function loadDecision() {
   const now = new Date();
   const nemNow = new Date(`${nemDate(now)}T12:00:00Z`);
@@ -56,8 +80,7 @@ async function loadDecision() {
   const target = new Date(Date.parse(`${last.time}Z`) + 3_600_000);
   const targetHour = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}T${String(target.getUTCHours()).padStart(2, "0")}:00:00`;
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
-  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), observations: history.length,
-    recent: history.slice(-24) };
+  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(history) };
 }
 
 export function BuySellPane({ width, height }: PaneProps) {
@@ -73,32 +96,29 @@ export function BuySellPane({ width, height }: PaneProps) {
   const stats: StatItem[] = [
     { label: "Paper decision", value: result.action, color: actionColor },
     { label: "Expected move", value: `${result.expectedMove >= 0 ? "+" : "−"}$${Math.abs(result.expectedMove).toFixed(2)}/MWh`, tone: result.expectedMove >= 0 ? "positive" : "negative" },
+    { label: "Follow-on hit rate", value: `${resource.data?.evaluation.correct ?? 0}/${resource.data?.evaluation.calls ?? 0} · ${((resource.data?.evaluation.hitRate ?? 0) * 100).toFixed(0)}%` },
+    { label: "Gross simulated result", value: `A$${(resource.data?.evaluation.gross ?? 0).toFixed(0)}`, tone: (resource.data?.evaluation.gross ?? 0) >= 0 ? "positive" : "negative" },
     { label: "Last completed hour", value: `$${result.entryMwHPrice.toFixed(2)}/MWh` },
     { label: "One-hour estimate", value: `$${result.forecastPrice.toFixed(2)}/MWh` },
   ];
-  const recent = resource.data?.recent ?? [];
-  const chartSeries = [
-    { ...staticSeries(recent.map((row) => scalarPoint(chartDate(row.time), row.price)), {
-      id: "vic1-hourly-rrp", label: "VIC1 hourly RRP", color: colors.warning, calendarSpaced: true,
-    }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
-    { ...staticSeries([scalarPoint(chartDate(result.targetHour), result.forecastPrice)], {
-      id: "vic1-price-estimate", label: "One-hour estimate", color: actionColor, style: "points", calendarSpaced: true,
-    }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
-  ];
-  const chartHeight = Math.max(8, Math.floor(height * 0.55));
+  const evaluation = resource.data?.evaluation;
+  const chartSeries = [{ ...staticSeries((evaluation?.series ?? []).map((point) => scalarPoint(chartDate(point.time), point.value)), {
+    id: "buy-sell-pnl", label: "Cumulative gross result", color: colors.warning, calendarSpaced: true,
+  }), panelId: "result", unit: "A$", unitGroup: "currency" }];
+  const chartHeight = Math.max(8, Math.floor(height * 0.48));
   return <Box width={width} height={height} flexDirection="column">
     <StatGrid items={stats} width={width} />
-    <CompositeChart series={chartSeries} panels={[{ id: "price", label: "VIC1 RRP $/MWh" }]} width={width}
-      height={chartHeight} focused={false} navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE}
-      formatValue={(value) => `$${value.toFixed(2)}`} />
+    <CompositeChart series={chartSeries} panels={[{ id: "result", label: "Nov 1–15 · cumulative gross result · A$" }]} width={width}
+      height={chartHeight} focused={false} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
+      levels={{ seriesId: "buy-sell-pnl", items: [{ id: "break-even", value: 0, color: colors.textDim, label: "Break-even", dashed: true, editable: false, actionable: false }] }}
+      formatValue={(value) => `A$${value.toFixed(0)}`} />
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text fg={colors.text}>{t("One-hour, 1 MWh paper-trade estimate · VIC1")}</Text>
       <Text fg={colors.textDim}>{t("BUY above +$5/MWh · SELL below −$5/MWh · otherwise HOLD")}</Text>
       <Text fg={colors.textDim}>{t("Ridge regression estimates the next price move from recent VIC price and demand, hour, weekday and holiday features.")}</Text>
-      <Text fg={colors.textDim}>{t("Nov 1–15 follow-on check: 96 of 143 calls matched direction (67%); signal active for 40% of hours. Gross simulated result: A$1,384 before costs.")}</Text>
+      <Text fg={colors.textDim}>{t("Cumulative gross result assumes one 1 MWh position for each BUY or SELL call, held for one hour.")}</Text>
       <Text fg={colors.textDim}>{t("Model fit through Oct 31, 2026. Follow-on period: Nov 1–15, 2026.")}</Text>
-      <Text fg={colors.warning}>{t("Exploratory result; model choice followed earlier period checks. No transaction costs, network limits or asset constraints included. No orders are placed.")}</Text>
-      <Text fg={colors.textDim}>{t("Uses {count} complete hourly observations · no signal history is saved.").replace("{count}", String(resource.data?.observations ?? 0))}</Text>
+      <Text fg={colors.warning}>{t("Exploratory result; model choice followed earlier period checks. Before costs and constraints; no orders are placed.")}</Text>
     </Box>
   </Box>;
 }
