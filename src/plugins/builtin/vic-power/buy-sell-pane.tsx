@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { PaneStatusBody, StatGrid, type StatItem } from "../../../components";
+import { CompositeChart, PaneStatusBody, StatGrid, scalarPoint, staticSeries, type StatItem } from "../../../components";
 import { useAsyncResource, useAutoRefresh } from "../../../public/react";
 import { httpFetch } from "../../../utils/http-transport";
 import type { PaneProps } from "../../../types/plugin";
@@ -9,6 +9,7 @@ import { t } from "../../../i18n";
 import { parseAemoPriceDemandCsv } from "./data";
 import { decideBuySell, type BuySellHourlyPrice } from "./buy-sell-model";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
+import { chartDate, NEM_TIME_ZONE } from "./analytics";
 
 function nemDate(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -55,7 +56,8 @@ async function loadDecision() {
   const target = new Date(Date.parse(`${last.time}Z`) + 3_600_000);
   const targetHour = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}T${String(target.getUTCHours()).padStart(2, "0")}:00:00`;
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
-  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), observations: history.length };
+  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), observations: history.length,
+    recent: history.slice(-24) };
 }
 
 export function BuySellPane({ width, height }: PaneProps) {
@@ -74,8 +76,21 @@ export function BuySellPane({ width, height }: PaneProps) {
     { label: "Last completed hour", value: `$${result.entryMwHPrice.toFixed(2)}/MWh` },
     { label: "One-hour estimate", value: `$${result.forecastPrice.toFixed(2)}/MWh` },
   ];
+  const recent = resource.data?.recent ?? [];
+  const chartSeries = [
+    { ...staticSeries(recent.map((row) => scalarPoint(chartDate(row.time), row.price)), {
+      id: "vic1-hourly-rrp", label: "VIC1 hourly RRP", color: colors.warning, calendarSpaced: true,
+    }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
+    { ...staticSeries([scalarPoint(chartDate(result.targetHour), result.forecastPrice)], {
+      id: "vic1-price-estimate", label: "One-hour estimate", color: actionColor, style: "points", calendarSpaced: true,
+    }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
+  ];
+  const chartHeight = Math.max(8, Math.floor(height * 0.55));
   return <Box width={width} height={height} flexDirection="column">
     <StatGrid items={stats} width={width} />
+    <CompositeChart series={chartSeries} panels={[{ id: "price", label: "VIC1 RRP $/MWh" }]} width={width}
+      height={chartHeight} focused={false} navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE}
+      formatValue={(value) => `$${value.toFixed(2)}`} />
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text fg={colors.text}>{t("One-hour, 1 MWh paper-trade estimate · VIC1")}</Text>
       <Text fg={colors.textDim}>{t("BUY above +$5/MWh · SELL below −$5/MWh · otherwise HOLD")}</Text>

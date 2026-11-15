@@ -9,6 +9,7 @@ export const workstationMarket: Record<string, readonly [string, string]> = {
   "Expected move": ["Variación estimada", "预期变动"],
   "Last completed hour": ["Última hora completa", "最近完整小时"],
   "One-hour estimate": ["Estimación a una hora", "一小时估计"],
+  "VIC1 hourly RRP": ["Precio horario VIC1", "VIC1 每小时区域参考价"],
   "VIC1 buy or sell signal": ["Señal de compra o venta VIC1", "VIC1 买入或卖出信号"],
   "No paper-trade signal is available.": ["No hay una señal de operación simulada disponible.", "暂无模拟交易信号。"],
   "Refresh": ["Actualizar", "刷新"],
