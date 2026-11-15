@@ -71,7 +71,7 @@ export const workstationShell: Record<string, readonly [string, string]> = {
   "Boxing Day (additional day)": ["Día después de Navidad (adicional)", "节礼日（补休日）"],
   "School holidays": ["Vacaciones escolares", "学校假期"],
   "Open the VIC market desk": ["Abrir el mercado VIC", "打开维州市场概览"],
-  "Review weather and load risk": ["Revisar clima y riesgo de demanda", "查看天气与负荷风险"],
+  "Check weather outlook": ["Consultar el pronóstico del tiempo", "查看天气预报"],
   "Compare regional spot prices": ["Comparar precios regionales", "比较区域现货电价"],
   "Show or hide the keyboard shortcuts bar": ["Mostrar u ocultar la barra de atajos", "显示或隐藏快捷键栏"],
   "Increase Font Size": ["Aumentar texto", "增大字号"],

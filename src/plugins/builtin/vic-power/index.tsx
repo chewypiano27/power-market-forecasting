@@ -9,7 +9,7 @@ export const vicPowerPlugin: WorkstationPlugin = {
   id: "vic-power",
   name: "VIC1 Power",
   version: "1.0.0",
-  description: "Victorian demand, price and temperature-risk workstation.",
+  description: "Victorian electricity market and weather workstation.",
   toggleable: false,
   targets: ["desktop"],
   hosts: [
@@ -32,14 +32,14 @@ export const vicPowerPlugin: WorkstationPlugin = {
   },
   panes: [
     { id: "vic-market-glance", name: "Market Desk", icon: "M", component: VicMarketGlancePane, defaultPosition: "left" },
-    { id: "vic-demand-price", name: "Weather & Load Risk", icon: "W", component: VicDemandPricePane, defaultPosition: "right" },
+    { id: "vic-demand-price", name: "Weather Outlook", icon: "W", component: VicDemandPricePane, defaultPosition: "right" },
     { id: "vic-spot-arbitrage", name: "Regional Spot", icon: "R", component: VicSpotArbitragePane, defaultPosition: "right" },
     // Compatibility for layouts saved before the calendar was consolidated.
     { id: "vic-trader-calendar", name: "Regional Spot", icon: "R", component: VicSpotArbitragePane, defaultPosition: "right" },
   ],
   paneTemplates: [
     { id: "vic-market-glance-pane", paneId: "vic-market-glance", label: "Market Desk", description: "VIC1 price, demand, flow and AEMO notices.", shortcut: { prefix: "VIC" }, keywords: ["vic", "power", "market", "demand", "notice"] },
-    { id: "vic-demand-price-pane", paneId: "vic-demand-price", label: "Weather & Load Risk", description: "Calendar-led temperature stress and peak risk windows.", shortcut: { prefix: "VICW" }, keywords: ["vic", "weather", "calendar", "temperature", "demand", "price"] },
+    { id: "vic-demand-price-pane", paneId: "vic-demand-price", label: "Weather Outlook", description: "Temperature, wind and precipitation outlook.", shortcut: { prefix: "VICW" }, keywords: ["vic", "weather", "calendar", "temperature", "demand", "price"] },
     { id: "vic-spot-arbitrage-pane", paneId: "vic-spot-arbitrage", label: "Regional Spot", description: "VIC, NSW and SA price separation with constraint context.", shortcut: { prefix: "VICS" }, keywords: ["spot", "spread", "regional", "separation", "interconnector"] },
   ],
 };

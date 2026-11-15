@@ -1,7 +1,7 @@
 /** Electricity-workstation queries suggested by the empty command bar. */
 const COMMAND_BAR_EXAMPLES = [
   "Market Desk",
-  "Weather & Load Risk",
+  "Weather Outlook",
   "Regional Spot",
 ] as const;
 
