@@ -62,7 +62,7 @@ function useWorkstationLayouts() {
   const stateRef = useAppStateRef();
   useEffect(() => {
     const state = stateRef.current;
-    if (state.config.pluginConfig["vic-power"]?.["workspace-presets-version"] === 3) return;
+    if (state.config.pluginConfig["vic-power"]?.["workspace-presets-version"] === 4) return;
     const config = syncConfigActiveLayoutState(state.config, state.paneState, state.focusedPaneId);
     dispatch({ type: "SET_CONFIG", config: installWorkstationLayouts(config) });
   }, [dispatch, stateRef]);
