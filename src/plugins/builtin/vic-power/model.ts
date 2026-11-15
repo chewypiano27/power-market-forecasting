@@ -34,18 +34,3 @@ export interface TraderDay {
   drivers?: import("./weather-risk").RiskDriver[];
   rawRiskScore?: number;
 }
-
-export function vicMarketPoints(
-  temperatureDelta: number,
-  baseline: readonly VicMarketPoint[],
-): VicMarketPoint[] {
-  return baseline.map((point) => {
-    const minute = point.timestamp ? Number(point.timestamp.slice(14, 16)) / 60 : 0;
-    const heat = Math.exp(-Math.pow((point.hour + minute - 17) / 4.2, 2));
-    const demand = point.demand + temperatureDelta * 84 * heat;
-    const scarcityDelta = Math.max(0, demand - 4_850) - Math.max(0, point.demand - 4_850);
-    const price = point.price + scarcityDelta * 0.10
-      + Math.max(temperatureDelta, 0) * 7.5 * heat + Math.min(temperatureDelta, 0) * 2.3 * heat;
-    return { ...point, demand, price };
-  });
-}

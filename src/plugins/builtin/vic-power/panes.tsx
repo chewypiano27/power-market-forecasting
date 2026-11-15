@@ -12,7 +12,6 @@ import {
   QueryBar,
   RatioBar,
   SectionHeading,
-  SliderField,
   StatGrid,
   usePaneNoticeFooter,
   usePaneStatusFooter,
@@ -37,9 +36,10 @@ import { NEM_TIME_ZONE, WEATHER_TIME_ZONE, weatherChartDate, chartDate, dispatch
 import { useAppDispatch, useAppStateRef, syncConfigActiveLayoutState } from "../../../state/app/context";
 import { installWorkstationLayouts } from "./workspaces";
 import type { SeparationWindow } from "./analytics";
-import { vicMarketPoints, type TraderDay, type VicMarketPoint, type Volatility } from "./model";
+import { type TraderDay, type VicMarketPoint, type Volatility } from "./model";
 
 import { bundledDemandModel, loadDemandProbability, nextDemandTarget } from "./demand-service";
+import { TemperatureStressPane } from "./temperature-stress-pane";
 import { DemandPeakPane } from "./demand-peak-pane";
 import { DemandHistoryPane } from "./demand-history-pane";
 import { demandDisplay, selectedDemandTarget } from "./demand-display";
@@ -47,7 +47,6 @@ import { ScoreDrivers } from "./score-drivers";
 import { FILL_REST } from "../../../components/ui/fill";
 
 const TEMPERATURE_KEY = "temperature-deviation";
-const MARKET_PANELS = [{ id: "demand", label: "Demand MW", height: 2 }, { id: "price", label: "Price $/MWh", height: 1 }];
 const GLANCE_PANELS = [{ id: "price", label: "VIC1 RRP", height: 1 }];
 const RISK_PANELS = [{ id: "temperature", label: "Melbourne temperature °C", height: 1 }, { id: "risk", label: "Hourly weather-load score", height: 1 }];
 const SPOT_PANELS = [{ id: "regional-price", label: "Regional RRP $/MWh", height: 2 }, { id: "regional-spread", label: "VIC minus neighbour $/MWh", height: 1 }];
@@ -115,30 +114,6 @@ function useVicPowerPaneStatus(
   usePaneNoticeFooter({registrationId: `${registrationId}:market-source`, focused, title:"Market data source",
     notices:context === "market" ? resource.data?.marketWarnings ?? [] : []});
   usePaneStatusFooter({ registrationId, loading: context !== "history" && context !== "forecast" && resource.loading, error: context === "history" || context === "forecast" ? null : resource.error, info });
-}
-
-function seriesForScenario(
-  delta: number,
-  colors: ReturnType<typeof useThemeColors>,
-  suffix = "",
-  baseline: readonly VicMarketPoint[] = [],
-): ResolvedSeries[] {
-  const day = new Date();
-  day.setMinutes(0, 0, 0);
-  const points = vicMarketPoints(delta, baseline);
-  const dates = points.map(({ hour, timestamp }) => timestamp
-    ? chartDate(timestamp)
-    : new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour));
-  const demand = staticSeries(points.map((point, index) => scalarPoint(dates[index]!, point.demand)), {
-    id: `vic-demand${suffix}`, label: `VIC demand${suffix}`, color: colors.borderFocused, calendarSpaced: true,
-  });
-  const price = staticSeries(points.map((point, index) => scalarPoint(dates[index]!, point.price)), {
-    id: `vic-price${suffix}`, label: `VIC price${suffix}`, color: colors.warning, calendarSpaced: true,
-  });
-  return [
-    { ...demand, panelId: "demand", unit: "MW", unitGroup: "power-demand" },
-    { ...price, panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
-  ];
 }
 
 function riskTone(risk: Volatility): "positive" | "warning" | "negative" {
@@ -336,11 +311,15 @@ export function VicDemandPricePane({ width, height, focused }: PaneProps) {
     {tabStrip}<DemandPeakPane width={width} height={Math.max(0, height - tabRows)} focused={focused} />
   </Box>;
 
+  if (view === "stress") return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
+    {tabStrip}<TemperatureStressPane width={width} height={Math.max(0, height - tabRows)} delta={delta} onChange={setDelta} />
+  </Box>;
+
   if (view === "history") return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     {tabStrip}<DemandHistoryPane width={width} height={Math.max(0,height-tabRows)} focused={focused} />
   </Box>;
 
-  if (!selected || (view === "stress" && !live.data?.market.length)) return (
+  if (!selected) return (
     <Box width={width} height={height} flexDirection="column">
       {tabStrip}
       <PaneStatusBody loading={live.loading} error={live.error} empty subject="Weather and load data" emptyTitle="No weather or market baseline available." retry={{ onRetry: live.reload }} />
@@ -375,50 +354,14 @@ export function VicDemandPricePane({ width, height, focused }: PaneProps) {
             <ScoreDrivers drivers={selected.drivers ?? []} score={selected.riskScore} />
             <SectionHeading title="Weather context" marginTop={1} />
             {(selected.reasons ?? [selected.note]).map((reason) => <Text key={reason} fg={colors.textDim} wrapText>{`• ${reason}`}</Text>)}
-            <Box marginTop={1}><Button label="Stress selected day" variant="ghost" compact onPress={() => setView("stress")} /></Box>
+            <Box marginTop={1}><Button label="Temperature sensitivity" variant="ghost" compact onPress={() => setView("stress")} /></Box>
           </Box>
         </ScrollBox>
       </Box>
     );
   }
 
-  const baseline = live.data?.market ?? [];
-  const base = vicMarketPoints(0, baseline);
-  const scenario = vicMarketPoints(delta, baseline);
-  const series = [
-    ...seriesForScenario(0, colors, " baseline", baseline).map((entry) => ({ ...entry, color: colors.textDim })),
-    ...seriesForScenario(delta, colors, " scenario", baseline),
-  ];
-  const peakScenario = scenario.reduce((peak, point) => point.demand > peak.demand ? point : peak, scenario[0]!);
-  const demandVariance = Math.max(...scenario.map((point) => point.demand)) - Math.max(...base.map((point) => point.demand));
-  const priceVariance = Math.max(...scenario.map((point) => point.price)) - Math.max(...base.map((point) => point.price));
-  const stats: StatItem[] = [
-    { label: "Selected forecast", value: `${selected.low}° / ${selected.high}°` },
-    { label: "Scenario maximum", value: `${(selected.high + delta).toFixed(1)}°C`, tone: Math.abs(delta) >= 5 ? "negative" : Math.abs(delta) >= 2 ? "warning" : undefined },
-    { label: "Peak demand change", value: `${signed(demandVariance)} MW`, color: colors.borderFocused },
-    { label: "Peak price change", value: `${signed(priceVariance, 2)} $/MWh`, tone: priceVariance >= 0 ? "warning" : "positive" },
-    { label: "Scenario peak", value: `${Math.round(peakScenario.demand).toLocaleString()} MW`, detail: (peakScenario.timestamp?.slice(11, 16) ?? `${String(peakScenario.hour).padStart(2, "0")}:00`) + " AEST" },
-    { label: "Risk window", value: selected.riskWindow ?? "—", detail: "Melbourne", tone: riskTone(selected.volatility) },
-  ];
-  const chartHeight = Math.max(6, height - tabRows - statGridRows(stats, width) - 4);
-  return (
-    <Box width={width} height={height} flexDirection="column">
-      {tabStrip}
-      <Box paddingX={1} paddingY={1} flexShrink={0}>
-        <Box flexDirection="row" alignItems="flex-end" flexWrap="wrap" style={{ gap: "var(--power-space-sm)" }}>
-          <Box flexGrow={1} minWidth={0}>
-            <SliderField label="Selected-day maximum temperature" value={delta} min={-8} max={8} step={0.5}
-              formatValue={(value) => `${(selected.high + value).toFixed(1)}°C (${signed(value, 1)}°)`} onChange={setDelta} />
-          </Box>
-          <Button label="Reset assumption" variant="ghost" compact disabled={delta === 0} onPress={() => setDelta(0)} />
-        </Box>
-      </Box>
-      <StatGrid items={stats} width={width} />
-      <CompositeChart wrapLegendLabels series={series} panels={MARKET_PANELS} width={width} height={chartHeight} focused={focused}
-        navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE} formatValue={(value, entry) => `${entry.unit === "$/MWh" ? value.toFixed(2) : Math.round(value)} ${entry.unit}`} />
-      <Box paddingX={1}><Text fg={colors.textMuted} wrapText>Temperature change applied to the latest VIC demand and price shape.</Text></Box>
-    </Box>
-  );
+  return null;
 }
 
 function regionLabel(regionId: string): string {
