@@ -19,4 +19,25 @@ Run from the repository root with an audited dataset JSON:
 
 The report includes the dataset hash, fixed split sizes, selected ridge penalty, pre-test correction-window comparison, test metrics, and coefficient/metric parity. A nonmatching result exits with an error.
 
-The raw market and weather snapshots are not bundled in the repository. The current audited feature dataset is kept separately at `output/evidence/2026-11-11-demand-peak/audited-dataset.json` in the project workspace. Recreating that feature dataset from raw sources remains a separate step; the script deliberately requires its path and never stores calculation timestamps or uploads data.
+The raw market and weather snapshots are not bundled in the repository. To rebuild the audited feature dataset, supply a source archive with this layout:
+
+```text
+<source-root>/
+  raw/aemo/PRICE_AND_DEMAND_*.csv
+  probability/dataset.json
+  probability/dataset-manifest.json
+  probability/forecasts/YYYY-MM-DD.json
+```
+
+Then run the audit and fit replay:
+
+```sh
+bun run scripts/audit-demand-training-data.ts \
+  --source-root /path/to/vic1-data \
+  --output /tmp/audited-demand-dataset.json
+
+.venv-model/bin/python scripts/reproduce-demand-peak.py \
+  --dataset /tmp/audited-demand-dataset.json
+```
+
+The audit verifies the source manifest, all AEMO and weather snapshot hashes, feature and demand-label parity, forecast availability at each issue cutoff, and the same-weekday baseline. The output hash should match the audited dataset used for the deployed artifact. These commands run locally: source data is not included or uploaded, and no forecast-calculation timestamp is created or retained.
