@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Badge, CompositeChart, PaneStatusBody, StatGrid, scalarPoint, staticSeries, usePaneTabs, type StatItem } from "../../../components";
+import { Badge, CompositeChart, PaneStatusBody, StatGrid, scalarPoint, staticSeries, statGridRows, usePaneTabs, type StatItem } from "../../../components";
 import { useAsyncResource, useAutoRefresh, usePluginPaneState } from "../../../public/react";
 import { httpFetch } from "../../../utils/http-transport";
 import type { PaneProps } from "../../../types/plugin";
@@ -10,6 +10,7 @@ import { parseAemoPriceDemandCsv } from "./data";
 import { decideBuySell, type BuySellHourlyPrice } from "./buy-sell-model";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
 import { chartDate, NEM_TIME_ZONE } from "./analytics";
+import { FILL_REST } from "../../../components/ui/fill";
 
 function nemDate(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -43,8 +44,8 @@ function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellH
 function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
   const from = "2026-11-01T00:00:00";
   const through = "2026-11-16T00:00:00";
-  const days = new Map<string, { calls: number; correct: number; gross: number }>();
-  for (let day = 1; day <= 15; day += 1) days.set(`2026-11-${String(day).padStart(2, "0")}`, { calls: 0, correct: 0, gross: 0 });
+  const days = new Map<string, { calls: number; correct: number; returnPct: number; returnCount: number }>();
+  for (let day = 1; day <= 15; day += 1) days.set(`2026-11-${String(day).padStart(2, "0")}`, { calls: 0, correct: 0, returnPct: 0, returnCount: 0 });
   for (let index = 168; index < history.length; index += 1) {
     const actual = history[index]!;
     if (actual.time < from || actual.time >= through) continue;
@@ -55,17 +56,23 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
     if (decision.status === "ready" && decision.action !== "HOLD") {
       const move = actual.price - prior.at(-1)!.price;
       const side = decision.action === "BUY" ? 1 : -1;
-      day.gross += side * move;
       day.calls += 1;
       if ((side === 1 && move > 0) || (side === -1 && move < 0)) day.correct += 1;
+      const entry = prior.at(-1)!.price;
+      if (entry > 0) {
+        day.returnPct += side * move / entry * 100;
+        day.returnCount += 1;
+      }
     }
   }
   const series = [...days].map(([date, value]) => ({ time: `${date}T12:00:00`, ...value,
-    hitRate: value.calls ? value.correct / value.calls * 100 : null }));
+    hitRate: value.calls ? value.correct / value.calls * 100 : null,
+    meanReturnPct: value.returnCount ? value.returnPct / value.returnCount : null }));
   const calls = series.reduce((sum, day) => sum + day.calls, 0);
   const correct = series.reduce((sum, day) => sum + day.correct, 0);
-  const gross = series.reduce((sum, day) => sum + day.gross, 0);
-  return { series, calls, correct, hitRate: calls ? correct / calls : 0, gross };
+  const returnCount = series.reduce((sum, day) => sum + day.returnCount, 0);
+  const meanReturnPct = returnCount ? series.reduce((sum, day) => sum + day.returnPct, 0) / returnCount : 0;
+  return { series, calls, correct, hitRate: calls ? correct / calls : 0, meanReturnPct, returnCount };
 }
 
 async function loadDecision() {
@@ -101,10 +108,10 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   const decision = result?.status === "ready" ? result : null;
   const actionColor = decision?.action === "BUY" ? colors.positive : decision?.action === "SELL" ? colors.negative : colors.textDim;
   const liveStats: StatItem[] = decision ? [
-    { label: "Paper decision", value: decision.action, color: actionColor },
+    { label: "Signal", value: decision.action, color: actionColor },
     { label: "Expected move", value: `${decision.expectedMove >= 0 ? "+" : "−"}$${Math.abs(decision.expectedMove).toFixed(2)}/MWh`, tone: decision.expectedMove >= 0 ? "positive" : "negative" },
-    { label: "Last completed hour", value: `$${decision.entryMwHPrice.toFixed(2)}/MWh` },
-    { label: "One-hour estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
+    { label: "Entry price", value: `$${decision.entryMwHPrice.toFixed(2)}/MWh` },
+    { label: "Price estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
   ] : [];
   const evaluation = resource.data?.evaluation;
   const actualSeries = useMemo(() => staticSeries((resource.data?.recent ?? []).map((row) => scalarPoint(chartDate(row.time), row.price)), {
@@ -119,33 +126,35 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   const dailyHitRate = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.hitRate)), {
     id: "daily-hit-rate", label: "Direction correct", color: colors.borderFocused, calendarSpaced: true,
   }), [colors.borderFocused, evaluation?.series]);
-  const dailyPnl = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.gross)), {
-    id: "daily-pnl", label: "Gross result", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
+  const dailyPnl = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.meanReturnPct)), {
+    id: "daily-return", label: "Mean return", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
   }), [colors.negative, colors.positive, evaluation?.series]);
   const evaluationSeries = [
     { ...dailyHitRate, panelId: "hit-rate", unit: "%", unitGroup: "percentage" },
-    { ...dailyPnl, panelId: "daily-pnl", unit: "A$", unitGroup: "currency" },
+    { ...dailyPnl, panelId: "daily-return", unit: "%", unitGroup: "percentage" },
   ];
-  const chartHeight = Math.max(8, Math.floor((height - tabRows) * 0.56));
-  if (!decision) return <Box width={width} height={height} flexDirection="column">
+  const chartHeight = Math.max(8, height - tabRows - statGridRows(liveStats, width) - 4);
+  if (!decision) return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     {tabStrip}<PaneStatusBody loading={resource.loading} error={resource.error} empty subject="VIC1 buy or sell signal"
       emptyTitle="No paper-trade signal is available."
       retry={{ onRetry: resource.reload, label: "Refresh", pending: resource.loading }} width={width} height={Math.max(0, height - tabRows)} />
   </Box>;
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
-      { label: "Directional hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
-      { label: "Gross simulated result", value: `A$${(evaluation?.gross ?? 0).toFixed(0)}`, tone: (evaluation?.gross ?? 0) >= 0 ? "positive" : "negative" },
+      { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
+      { label: "Mean return", value: `${(evaluation?.meanReturnPct ?? 0) >= 0 ? "+" : ""}${(evaluation?.meanReturnPct ?? 0).toFixed(2)}%`, tone: (evaluation?.meanReturnPct ?? 0) >= 0 ? "positive" : "negative" },
+      { label: "Calls", value: `${evaluation?.calls ?? 0}/360 · ${((evaluation?.calls ?? 0) / 360 * 100).toFixed(0)}%` },
     ];
-    return <Box width={width} height={height} flexDirection="column">
+    const evaluationChartHeight = Math.max(8, height - tabRows - statGridRows(evaluationStats, width) - 3);
+    return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
       {tabStrip}<StatGrid items={evaluationStats} width={width} />
-      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily directional hit rate · %", height: 1 }, { id: "daily-pnl", label: "Daily gross result · A$", height: 1 }]} width={width}
-        height={chartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
-        levels={{ seriesId: "daily-hit-rate", items: [{ id: "coin-flip", value: 50, color: colors.textDim, label: "50%", dashed: true, editable: false, actionable: false }] }}
-        formatValue={(value) => `${value.toFixed(0)}`} />
+      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate · %", height: 1 }, { id: "daily-return", label: "Mean call return · %", height: 1 }]} width={width}
+        height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
+        levels={{ seriesId: "daily-return", items: [{ id: "break-even", value: 0, color: colors.textDim, label: "0%", dashed: true, editable: false, actionable: false }] }}
+        formatValue={(value) => `${value.toFixed(1)}%`} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026")}</Text>
-        <Text fg={colors.textDim}>{t("Daily columns show gross result for one 1 MWh position per BUY or SELL call, held for one hour.")}</Text>
+        <Text fg={colors.textDim}>{t("Mean return is per called hour when entry price is positive; hit rate includes all calls.")}</Text>
       </Box>
     </Box>;
   }
@@ -154,7 +163,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
     : decision.action === "SELL"
       ? t("SELL because the estimated fall of {move}/MWh exceeds the −$5/MWh threshold.").replace("{move}", Math.abs(decision.expectedMove).toFixed(2))
       : t("HOLD because the estimated move stays within the ±$5/MWh threshold.");
-  return <Box width={width} height={height} flexDirection="column">
+  return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     {tabStrip}<StatGrid items={liveStats} width={width} />
     <CompositeChart series={liveSeries} panels={[{ id: "price", label: "VIC1 hourly electricity price · $/MWh" }]} width={width}
       height={chartHeight} focused={focused} navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE}
