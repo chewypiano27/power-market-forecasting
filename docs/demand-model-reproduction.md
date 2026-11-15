@@ -9,17 +9,20 @@ python3 -m venv .venv-model
 .venv-model/bin/pip install -r requirements-model.txt
 ```
 
-Run from the repository root with an audited dataset JSON:
+Rebuild the exact 962-day audited dataset from the public source archives, then replay the fit:
 
 ```sh
+bun run scripts/rebuild-demand-training-data.ts \
+  --output /tmp/audited-demand-dataset.json
+
 .venv-model/bin/python scripts/reproduce-demand-peak.py \
-  --dataset /path/to/audited-dataset.json \
+  --dataset /tmp/audited-demand-dataset.json \
   --output /tmp/demand-model-reproduction.json
 ```
 
-The report includes the dataset hash, fixed split sizes, selected ridge penalty, pre-test correction-window comparison, test metrics, and coefficient/metric parity. A nonmatching result exits with an error.
+The rebuild downloads 32 AEMO monthly demand CSVs and the matching GFS 48-hour archived weather series, derives the features with the same app code, and requires an exact match to the audited dataset hash before writing it. A changed or incomplete upstream archive stops with an error. The replay report includes the dataset hash, fixed split sizes, selected ridge penalty, pre-test correction-window comparison, test metrics, and coefficient/metric parity. A nonmatching fit exits with an error.
 
-The raw market and weather snapshots are not bundled in the repository. To rebuild the audited feature dataset, supply a source archive with this layout:
+The raw source snapshots are not bundled or retained by the rebuild command. The output dataset contains only the audited daily model inputs, outcomes, and fixed issue/outcome cutoffs needed for leakage checks. To rebuild from a previously saved source archive instead, use:
 
 ```text
 <source-root>/
@@ -29,7 +32,7 @@ The raw market and weather snapshots are not bundled in the repository. To rebui
   probability/forecasts/YYYY-MM-DD.json
 ```
 
-Then run the audit and fit replay:
+Then run the local audit and fit replay:
 
 ```sh
 bun run scripts/audit-demand-training-data.ts \
@@ -40,4 +43,6 @@ bun run scripts/audit-demand-training-data.ts \
   --dataset /tmp/audited-demand-dataset.json
 ```
 
-The audit verifies the source manifest, all AEMO and weather snapshot hashes, feature and demand-label parity, forecast availability at each issue cutoff, and the same-weekday baseline. The output hash should match the audited dataset used for the deployed artifact. These commands run locally: source data is not included or uploaded, and no forecast-calculation timestamp is created or retained.
+The offline audit verifies the source manifest, all AEMO and weather snapshot hashes, feature and demand-label parity, forecast availability at each issue cutoff, and the same-weekday baseline.
+
+Weather values come from the [Open-Meteo Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api) under [CC BY 4.0](https://open-meteo.com/en/license). AEMO monthly demand data comes from AEMO's public [price and demand archive](https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/market-data-nem/price-and-demand-data). The scripts run locally and do not retain API capture or model calculation timestamps; the dataset retains only the fixed issue and outcome cutoffs used to check leakage.
