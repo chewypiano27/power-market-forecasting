@@ -1,27 +1,22 @@
-import { csvFields } from "./csv";
+import { finiteInput } from "./csv";
 import { fetchNemwebDispatch } from "./nemweb-dispatch";
+import { parseAemoPriceDemandCsv, VIC_REGION_ID } from "./aemo-price-demand-csv";
+import type { AemoPriceDemandRow } from "./aemo-price-demand-csv";
 import { httpFetch, type HttpFetchTransport } from "../../../utils/http-transport";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
 import { hourlyWeatherScore, weatherRisk } from "./weather-risk";
 import { dispatchTime } from "./analytics";
 import type { TraderDay, VicMarketPoint, WeatherRiskHour } from "./model";
 
-export const VIC_REGION_ID = "VIC1";
 export const MELBOURNE_COORDINATES = { latitude: -37.8136, longitude: 144.9631 } as const;
-export const AEMO_PRICE_DEMAND_COLUMNS = ["REGION", "SETTLEMENTDATE", "TOTALDEMAND", "RRP", "PERIODTYPE"] as const;
+
+export { AEMO_PRICE_DEMAND_COLUMNS, parseAemoPriceDemandCsv, VIC_REGION_ID } from "./aemo-price-demand-csv";
+export type { AemoPriceDemandRow } from "./aemo-price-demand-csv";
 
 const AEMO_DASHBOARD_BASE = "https://visualisations.aemo.com.au/aemo/apps/api/report";
 const AEMO_NEMWEB_NOTICE_DIRECTORY = "https://nemweb.com.au/Reports/CURRENT/Market_Notice/";
 const BOM_MELBOURNE_PRECIS = "https://reg.bom.gov.au/fwo/IDV10753.xml";
 const MONTHLY_REFERENCE_HIGH = [26.8, 26.8, 24.9, 21.4, 17.8, 15.2, 14.5, 15.7, 18.0, 20.1, 22.7, 24.7] as const;
-
-export interface AemoPriceDemandRow {
-  region: string;
-  settlementDate: string;
-  totalDemand: number;
-  rrp: number;
-  periodType: string;
-}
 
 export interface InterconnectorFlow {
   name: string;
@@ -182,29 +177,6 @@ export function createVicPowerDemoSnapshot(): VicPowerSnapshot {
 }
 
 
-export function parseAemoPriceDemandCsv(csv: string, regionId = VIC_REGION_ID): AemoPriceDemandRow[] {
-  const lines = csv.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
-  if (!lines.length) throw new Error("AEMO returned an empty price and demand file.");
-  const header = csvFields(lines[0]!).map((column) => column.toUpperCase());
-  const missing = AEMO_PRICE_DEMAND_COLUMNS.filter((column) => !header.includes(column));
-  if (missing.length) throw new Error(`AEMO price and demand columns changed; missing ${missing.join(", ")}.`);
-  const index = Object.fromEntries(header.map((column, position) => [column, position]));
-  return lines.slice(1).flatMap((line) => {
-    const fields = csvFields(line);
-    const region = fields[index.REGION!] ?? "";
-    const totalDemand = finiteInput(fields[index.TOTALDEMAND!]);
-    const rrp = finiteInput(fields[index.RRP!]);
-    if (region !== regionId || totalDemand === null || rrp === null) return [];
-    return [{
-      region,
-      settlementDate: (fields[index.SETTLEMENTDATE!] ?? "").replaceAll("/", "-"),
-      totalDemand,
-      rrp,
-      periodType: fields[index.PERIODTYPE!] ?? "",
-    }];
-  });
-}
-
 async function responseJson<T>(url: string, fetcher: HttpFetchTransport, init?: RequestInit): Promise<T> {
   const response = await fetcher(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
   const body = await response.text();
@@ -303,12 +275,6 @@ async function fetchAemoNemwebNotices(fetcher: HttpFetchTransport): Promise<Powe
 function number(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function finiteInput(value: unknown): number | null {
-  if ((typeof value !== "number" && typeof value !== "string") || (typeof value === "string" && !value.trim())) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function parseFlows(value: unknown): InterconnectorFlow[] {
