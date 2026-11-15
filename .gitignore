@@ -21,3 +21,7 @@ paseo.json
 *.lcov
 *.tsbuildinfo
 .env*
+
+# Offline Python evaluation caches
+__pycache__/
+*.py[cod]
