@@ -57,12 +57,6 @@ function minifyOption(keepNames: boolean | undefined) {
 // the sources.
 const ELECTROBUN_VIEW_DIR = join(import.meta.dir, "..", "electrobun", "view");
 
-/**
- * Where the world map finds its land data, relative to the map's
- * `basemap.ts`. Only view bundles define it, so the terminal binary, which
- * never draws that map, leaves the data out.
- */
-export const WORLD_MAP_DATA_SPECIFIER = "./natural-earth/index.chunk.js";
 const DOM_RENDERER_DIR = import.meta.dir;
 
 export function electrobunViewPath(...parts: string[]): string {
@@ -98,7 +92,6 @@ export async function buildViewBundle({
     minify: minifyOption(keepNames),
     define: {
       "process.env.NODE_ENV": "\"production\"",
-      __POWER_WORLD_MAP_DATA__: JSON.stringify(WORLD_MAP_DATA_SPECIFIER),
       ...define,
     },
     plugins: [
@@ -203,9 +196,7 @@ ${bootstrapScript}
  * The view bundle is one file (no splitting), so a module reached through
  * `import()` would land in it. A module named `*.chunk.ts` and imported as
  * `import("./path/name.chunk.js")` instead ships as its own file at that path
- * next to the importing bundle, fetched the first time it is asked for: large
- * data only some panes draw, such as the world map's coastlines. The terminal
- * and the tests run the source, where the same `import()` loads the module.
+ * next to the importing bundle, fetched the first time it is asked for.
  */
 function lazyChunkPlugin(rootOutdir: string, emitDir: string, chunks: Map<string, string>): BunPlugin {
   return {
