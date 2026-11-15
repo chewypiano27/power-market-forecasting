@@ -6,7 +6,7 @@ import { ChartTableHeader, DataTableView, PaneStatusBody, QueryBar, StatGrid, Ba
 import { useAsyncResource, useAutoRefresh, usePluginPaneState } from "../../../public/react";
 import { usePaneRefreshKey } from "../../../components/data-table/table-pane";
 import { useAppLanguage } from "../../../i18n/react";
-import { t, tf } from "../../../i18n";
+import { getUiLocale, t, tf } from "../../../i18n";
 import { useThemeColors } from "../../../theme/theme-context";
 import { Box, Text } from "../../../ui";
 import { FILL_REST } from "../../../components/ui/fill";
@@ -74,6 +74,11 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
   if (!history) return <PaneStatusBody empty subject="Peak demand model" emptyTitle="Peak history unavailable." />;
   const tableHeight = Math.max(6, height - statGridRows(liveStats, width) - (ready ? 6 : 0) - 3);
   const note = forecast.data && forecast.data.status !== "ready" ? forecast.data.reason : ready?.inputWarning ?? "Day-ahead issue: 18:00 AEST. Weather inputs use a fixed 48-hour lead.";
+  const training = peakModel ? tf("Base model fit: {days} days ({start}–{end}); one summer.", {
+    days: Math.round((Date.parse(`${peakModel.trainingEnd}T00:00:00Z`) - Date.parse(`${peakModel.trainingStart}T00:00:00Z`)) / 86_400_000) + 1,
+    start: new Date(`${peakModel.trainingStart}T12:00:00Z`).toLocaleDateString(getUiLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+    end: new Date(`${peakModel.trainingEnd}T12:00:00Z`).toLocaleDateString(getUiLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+  }) : "";
   return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     <Box paddingX={1} flexShrink={0}>
       <Box flexDirection="row" alignItems="center" style={{ gap: "var(--power-space-sm)" }}>
@@ -81,7 +86,7 @@ export function DemandPeakPane({ width, height, focused }: Pick<PaneProps, "widt
       </Box>
       <StatGrid items={liveStats} width={width} />
       {ready ? <DemandPeakDrivers forecast={ready} /> : null}
-      <Text fg={forecast.data?.status === "unavailable" || ready?.inputWarning ? colors.warning : colors.textDim} wrapText>{t(note)}</Text>
+      <Text fg={forecast.data?.status === "unavailable" || ready?.inputWarning ? colors.warning : colors.textDim} wrapText>{t(note)} {training}</Text>
     </Box>
     <DataTableView<Row> key={period} focused={focused} rootWidth={width} rootHeight={tableHeight} emptyStateTitle={tracking ? "No saved forecasts for this model yet." : "No held-out peak forecasts available."} columns={tableColumns} items={rows} getItemKey={rowId} freezeFirstColumn sortColumnId="date" sortDirection="asc"
       resetScrollKey={period} selection={{ kind: "index", selectedIndex: rows.length ? selectedIndex : -1, onChange: index => setSelectedId(rows[index]?.[0] ?? null) }}

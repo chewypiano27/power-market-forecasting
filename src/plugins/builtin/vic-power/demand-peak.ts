@@ -6,7 +6,7 @@ export interface PeakArtifact {
   schemaVersion: 2; kind: "daily-peak-mw-ridge-corrected";
   biasCorrection: { method: "mean-completed-errors"; days: number; lagDays: 2 }; featureNames: readonly string[];
   means: number[]; scales: number[]; weights: number[]; intercept: number;
-  trainingEnd: string; calibrationEnd: string; testEnd: string;
+  trainingStart: string; trainingEnd: string; calibrationEnd: string; testEnd: string;
   evaluationSha256: string; sourceManifestHash: string;
   sourceContract: { model: string; policy: string; asIssuedFrom: string; provenanceEvidence: string };
 }
@@ -20,7 +20,8 @@ export function validatePeakArtifact(value: unknown): PeakArtifact | null {
     || data.biasCorrection?.method !== "mean-completed-errors" || data.biasCorrection.lagDays !== 2 || ![7, 14, 28, 56].includes(data.biasCorrection.days) || JSON.stringify(data.featureNames) !== JSON.stringify(PEAK_FEATURES)
     || ![data.means, data.scales, data.weights].every(array => Array.isArray(array) && array.length === PEAK_FEATURES.length && array.every(value => typeof value === "number" && Number.isFinite(value)))
     || data.scales.some(value => value <= 0) || typeof data.intercept !== "number" || !Number.isFinite(data.intercept)
-    || !validDate(data.trainingEnd) || !validDate(data.calibrationEnd) || !validDate(data.testEnd) || !(data.trainingEnd < data.calibrationEnd && data.calibrationEnd < data.testEnd)
+    || !validDate(data.trainingStart) || !validDate(data.trainingEnd) || !validDate(data.calibrationEnd) || !validDate(data.testEnd)
+    || !(data.trainingStart <= data.trainingEnd && data.trainingEnd < data.calibrationEnd && data.calibrationEnd < data.testEnd)
     || data.sourceContract?.model !== DEMAND_MODEL || data.sourceContract.policy !== DEMAND_FORECAST_POLICY || !validDate(data.sourceContract.asIssuedFrom)
     || typeof data.sourceContract.provenanceEvidence !== "string" || !data.sourceContract.provenanceEvidence.trim()
     || ![data.evaluationSha256, data.sourceManifestHash].every(value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value))) return null;
