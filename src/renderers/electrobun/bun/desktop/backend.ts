@@ -340,7 +340,6 @@ export class DesktopBackend {
       case "host.openExternal":
       case "host.copyText":
       case "host.focusWindow":
-      case "host.copyPngImage":
       case "host.readText":
       case "host.saveTextFile":
       case "host.notify":

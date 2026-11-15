@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { ContextMenu, Utils, type BrowserWindow } from "electrobun/bun";
 import { buildSoundCommand } from "../../../../notifications/app-notifier";
 import type {
@@ -123,12 +122,6 @@ export async function handleDesktopHostRequest(
     case "host.focusWindow": {
       const windowKey = backend.rpcs.getRpcWindowKey(rpc);
       if (windowKey) backend.detachedWindows.focusWindowForRpcKey(windowKey);
-      return null;
-    }
-    case "host.copyPngImage": {
-      const pngBase64 = normalizeText(request.payload.pngBase64);
-      if (!pngBase64) throw new Error("host.copyPngImage requires PNG data.");
-      Utils.clipboardWriteImage(new Uint8Array(Buffer.from(pngBase64, "base64")));
       return null;
     }
     case "host.readText":

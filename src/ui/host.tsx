@@ -625,7 +625,6 @@ export interface RendererHost {
    */
   openExternal(url: string): Promise<boolean | void>;
   copyText(text: string): Promise<void>;
-  copyPngImage?(pngBase64: string): Promise<void>;
   readText(): Promise<string>;
   saveTextFile?(request: SaveTextFileRequest): Promise<string>;
   supportsNativeDesktopNotifications?: boolean;
