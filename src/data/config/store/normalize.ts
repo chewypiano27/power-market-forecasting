@@ -9,7 +9,6 @@ import {
 import { isLanguagePreference } from "../../../i18n/languages";
 import { clampFontSize } from "../../../theme/font-scale";
 import { isLayoutConfig, sanitizeLayout } from "../layout";
-import { migrateSavedConfig, type ConfigMigrationHost } from "./migrations";
 import { encodeBuiltinDisabledPluginIds, expandBuiltinPluginGroups } from "../../../plugins/ownership";
 import { sanitizeSavedPaneState } from "./pane-state";
 import { isRecord } from "../../../utils/guards";
@@ -38,11 +37,9 @@ function sanitizeTheme(value: unknown, fallback: string): string {
 export function normalizeLoadedConfig(
   saved: Record<string, unknown>,
   dataDir: string,
-  host?: ConfigMigrationHost,
 ): { config: AppConfig; needsSave: boolean } {
   const defaults = createDefaultConfig(dataDir);
-  const migration = migrateSavedConfig(saved, dataDir, host);
-  const candidate = migration.config;
+  const candidate = saved;
   const directLayout = sanitizeLayout(candidate.layout, defaults.layout);
   const layouts = sanitizeSavedLayouts(candidate.layouts, directLayout);
   const activeLayoutIndex = sanitizeActiveLayoutIndex(candidate.activeLayoutIndex, layouts.length);
@@ -53,7 +50,6 @@ export function normalizeLoadedConfig(
       : entry
   ));
 
-  // After the migrations, which read retired group ids as they were saved.
   const disabledPlugins = expandBuiltinPluginGroups(
     sanitizeUniqueStringList(candidate.disabledPlugins ?? defaults.disabledPlugins),
   );
@@ -93,8 +89,7 @@ export function normalizeLoadedConfig(
   };
 
   const needsSave =
-    migration.migrated
-    || candidate.configVersion !== CURRENT_CONFIG_VERSION
+    candidate.configVersion !== CURRENT_CONFIG_VERSION
     || !isLayoutConfig(candidate.layout)
     || !Array.isArray((candidate.layout as { instances?: unknown })?.instances)
     || !Array.isArray(candidate.layouts)
