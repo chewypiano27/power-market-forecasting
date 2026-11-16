@@ -1,6 +1,7 @@
 {
   "schemaVersion": 2,
   "kind": "daily-peak-mw-ridge-corrected",
+  "ridgePenalty": 0.1,
   "featureNames": [
     "temperatureMax",
     "temperatureMin",

@@ -97,6 +97,10 @@ def run(dataset_path, artifact_path, history_path):
     history = json.loads(Path(history_path).read_text())
     if data.get("sourceManifestHash") != artifact.get("sourceManifestHash"):
         raise ValueError("Dataset source manifest does not match deployed artifact")
+    expected_penalty = artifact.get("ridgePenalty")
+    if (isinstance(expected_penalty, bool) or not isinstance(expected_penalty, (int, float))
+            or not math.isfinite(expected_penalty) or expected_penalty <= 0):
+        raise ValueError("Deployed artifact must declare a finite positive ridgePenalty")
     train, calibration, test = partition(data)
     if data["featureNames"] != artifact["featureNames"]:
         raise ValueError("Dataset feature order does not match deployed artifact")
@@ -116,7 +120,7 @@ def run(dataset_path, artifact_path, history_path):
     result = metrics(actual, point)
     result["baselineMaeMw"] = metrics(actual, baseline)["maeMw"]
     model_match = {
-        "penalty": selected["penalty"] == 0.1,
+        "penalty": selected["penalty"] == expected_penalty,
         "correctionDays": selected_correction == artifact["biasCorrection"]["days"],
         "means": np.allclose(model["means"], artifact["means"], rtol=0, atol=1e-8),
         "scales": np.allclose(model["scales"], artifact["scales"], rtol=0, atol=1e-8),

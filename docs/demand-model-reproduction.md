@@ -1,6 +1,6 @@
 # Reproduce the VIC daily-peak model fit
 
-The script replays the chronological fit and correction selection from an audited feature dataset, then checks that the coefficients and held-out metrics match the deployed artifact. It does not change the app artifact.
+The script replays the chronological fit and correction selection from an audited feature dataset, then checks that the coefficients and held-out metrics match the deployed artifact. It does not change the app artifact. The artifact declares its selected `ridgePenalty`; replay compares the chronological selection against that metadata, not a fixed expected penalty. This is an exact replay of the frozen training split, not a command for refitting on new dates.
 
 Create an environment and install the pinned training dependency:
 
