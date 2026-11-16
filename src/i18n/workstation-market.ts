@@ -22,7 +22,7 @@ export const workstationMarket: Record<string, readonly [string, string]> = {
   "No paper-trade signal is available.": ["No hay una señal de operación simulada disponible.", "暂无模拟交易信号。"],
   "Refresh": ["Actualizar", "刷新"],
   "Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026": ["Modelo ajustado hasta el 31 de octubre de 2026 · periodo posterior del 1 al 15 de noviembre de 2026", "模型拟合截至2026年10月31日 · 后续评估期为2026年11月1日至15日"],
-  "Mean return is per called hour when entry price is positive; hit rate includes all calls.": ["La rentabilidad media se calcula por hora con señal cuando el precio de entrada es positivo; el acierto incluye todas las señales.", "平均收益率按入场价格为正的信号小时计算；命中率包含所有信号。"],
+  "Mean return is the signed price change as a percentage of absolute entry price; hit rate includes all calls.": ["La rentabilidad media es la variación de precio con signo como porcentaje del valor absoluto del precio de entrada; el acierto incluye todas las señales.", "平均收益率为带方向的价格变动占入场价绝对值的百分比；命中率包含所有信号。"],
   "BUY because the estimated rise of {move}/MWh exceeds the +$5/MWh threshold.": ["COMPRAR: el alza estimada de {move}/MWh supera el umbral de +5 $/MWh.", "买入：预计上涨 {move}/MWh，超过 +5 $/MWh 阈值。"],
   "SELL because the estimated fall of {move}/MWh exceeds the −$5/MWh threshold.": ["VENDER: la caída estimada de {move}/MWh supera el umbral de −5 $/MWh.", "卖出：预计下跌 {move}/MWh，超过 −5 $/MWh 阈值。"],
   "HOLD because the estimated move stays within the ±$5/MWh threshold.": ["MANTENER: el cambio estimado queda dentro del umbral de ±5 $/MWh.", "持有：预计变动在 ±5 $/MWh 阈值范围内。"],

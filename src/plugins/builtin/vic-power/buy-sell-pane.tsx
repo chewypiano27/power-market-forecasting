@@ -59,8 +59,8 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
       day.calls += 1;
       if ((side === 1 && move > 0) || (side === -1 && move < 0)) day.correct += 1;
       const entry = prior.at(-1)!.price;
-      if (entry > 0) {
-        day.returnPct += side * move / entry * 100;
+      if (Math.abs(entry) > 0.01) {
+        day.returnPct += side * move / Math.abs(entry) * 100;
         day.returnCount += 1;
       }
     }
@@ -154,7 +154,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
         formatValue={(value) => `${value.toFixed(1)}%`} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026")}</Text>
-        <Text fg={colors.textDim}>{t("Mean return is per called hour when entry price is positive; hit rate includes all calls.")}</Text>
+        <Text fg={colors.textDim}>{t("Mean return is the signed price change as a percentage of absolute entry price; hit rate includes all calls.")}</Text>
       </Box>
     </Box>;
   }
