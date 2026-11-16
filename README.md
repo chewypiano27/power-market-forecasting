@@ -11,9 +11,8 @@ Each contains the app and its runtime: no Bun, Git, Python, API key or compilati
 is needed. A public binary download has not been published on GitHub.
 
 1. Download the ZIP to your Mac and double-click it to extract it.
-2. Drag **VIC1 Power Trader Workstation.app** into **Applications**.
-3. Open **Applications** and double-click the app.
-4. Keep an internet connection available for current AEMO and weather data.
+2. Open the extracted folder and double-click **VIC1 Power Trader Workstation.app**. You can launch it from this folder; moving it elsewhere is optional.
+3. Keep an internet connection available for current AEMO and weather data.
 
 Choose the ZIP matching **Apple menu → About This Mac**: a **Chip** such as M1/M2/M3/M4 means `macos-arm64`; an **Intel processor** means `macos-x64`. The native build workflow produces separate packages, not one universal app.
 
