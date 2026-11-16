@@ -1,0 +1,46 @@
+name: Desktop packages
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature/desktop-installation-packages"]
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: macos-arm64
+          - runner: macos-15-intel
+            target: macos-x64
+          - runner: windows-2022
+            target: windows-x64
+          - runner: ubuntu-22.04
+            target: linux-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - name: Build macOS ZIP
+        if: runner.os == 'macOS'
+        run: bun run package:macos
+      - name: Build Windows or Linux installer
+        if: runner.os != 'macOS'
+        run: bun run desktop:build --env=stable
+      - name: Record SHA-256 checksums
+        shell: bash
+        run: |
+          bun -e 'import {createHash} from "node:crypto"; import {readdir,writeFile} from "node:fs/promises"; import {join} from "node:path"; for (const name of await readdir("artifacts",{recursive:true})) { if (!/\.(zip|exe|tar\.gz|tar\.zst)$/.test(name)) continue; const path=join("artifacts",name); const hash=createHash("sha256").update(new Uint8Array(await Bun.file(path).arrayBuffer())).digest("hex"); await writeFile(`${path}.sha256`,`${hash}  ${name.split(/[\\/]/).pop()}\n`); }'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VIC1-${{ matrix.target }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30

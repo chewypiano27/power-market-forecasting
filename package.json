@@ -10,7 +10,8 @@
     "desktop:view:build": "bun run scripts/build-electrobun-view.ts",
     "desktop:dev": "electrobun dev",
     "desktop:build": "electrobun build",
-    "typecheck": "tsc --project tsconfig.desktop.json"
+    "typecheck": "tsc --project tsconfig.desktop.json",
+    "package:macos": "bun scripts/package-macos.ts"
   },
   "dependencies": {
     "react": "19.2.7",
