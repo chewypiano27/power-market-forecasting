@@ -61,11 +61,10 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
     }
   }
   const series = [...days].map(([date, value]) => ({ time: `${date}T12:00:00`, ...value,
-    hitRateDelta: value.calls ? value.correct / value.calls * 100 - 50 : null,
-    coverage: value.calls / 24 * 100 }));
+    hitRateDelta: value.calls ? value.correct / value.calls * 100 - 50 : null }));
   const calls = series.reduce((sum, day) => sum + day.calls, 0);
   const correct = series.reduce((sum, day) => sum + day.correct, 0);
-  return { series, calls, correct, hitRate: calls ? correct / calls : 0, coverage: calls / 360 };
+  return { series, calls, correct, hitRate: calls ? correct / calls : 0 };
 }
 
 async function loadDecision() {
@@ -119,13 +118,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   const dailyHitRate = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.hitRateDelta)), {
     id: "daily-hit-rate", label: "Hit rate vs 50%", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
   }), [colors.negative, colors.positive, evaluation?.series]);
-  const dailyCoverage = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.coverage)), {
-    id: "daily-coverage", label: "Call coverage", color: colors.warning, style: "columns", calendarSpaced: true,
-  }), [colors.warning, evaluation?.series]);
-  const evaluationSeries = [
-    { ...dailyHitRate, panelId: "hit-rate", unit: "pp", unitGroup: "percentage" },
-    { ...dailyCoverage, panelId: "coverage", unit: "%", unitGroup: "percentage" },
-  ];
+  const evaluationSeries = [{ ...dailyHitRate, panelId: "hit-rate", unit: "pp", unitGroup: "percentage" }];
   const chartHeight = Math.max(8, height - tabRows - statGridRows(liveStats, width) - 4);
   if (!decision) return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     {tabStrip}<PaneStatusBody loading={resource.loading} error={resource.error} empty subject="VIC1 buy or sell signal"
@@ -135,18 +128,18 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
       { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
-      { label: "Calls", value: `${evaluation?.calls ?? 0}/360 · ${((evaluation?.calls ?? 0) / 360 * 100).toFixed(0)}%` },
+      { label: "Coverage", value: `${evaluation?.calls ?? 0}/360 · ${((evaluation?.calls ?? 0) / 360 * 100).toFixed(0)}%` },
     ];
     const evaluationChartHeight = Math.max(8, height - tabRows - statGridRows(evaluationStats, width) - 3);
     return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
       {tabStrip}<StatGrid items={evaluationStats} width={width} />
-      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Hit rate vs 50% · pp", height: 1 }, { id: "coverage", label: "Call coverage · %", height: 1 }]} width={width}
+      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate vs 50% · pp" }]} width={width}
         height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
         levels={{ seriesId: "daily-hit-rate", items: [{ id: "coin-flip", value: 0, color: colors.textDim, label: "50% hit rate", dashed: true, editable: false, actionable: false }] }}
-        formatValue={(value, series) => series.panelId === "hit-rate" ? `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp` : `${value.toFixed(0)}%`} />
+        formatValue={(value) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp`} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026")}</Text>
-        <Text fg={colors.textDim}>{t("Hit-rate bars show daily accuracy relative to 50%; coverage is calls divided by 24 hours.")}</Text>
+        <Text fg={colors.textDim}>{t("Each bar shows the day's directional hit rate relative to 50%; green is above, red below.")}</Text>
       </Box>
     </Box>;
   }
