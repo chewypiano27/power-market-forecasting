@@ -2,7 +2,7 @@ import { formatPercentRaw } from "../../../utils/format";
 import type { ChartVectorShape } from "../../../ui/host";
 import type { NativeChartBitmap } from "../native/chart-rasterizer";
 import { drawCircle, drawLine, fillRect, parseHex, type RgbaColor } from "../native/raster/primitives";
-import { formatCompositeAxisValue, formatCompositeCursorDate, formatCompositeCursorValue } from "./format";
+import { formatCompositeAxisValue, formatCompositeCursorDate } from "./format";
 import { projectCompositeValue, unprojectCompositeValue } from "./scene";
 import { projectCompositeTimestamp, unprojectCompositeTimestamp } from "./time-scale";
 import type {
@@ -13,14 +13,11 @@ import type {
 import { clamp } from "../../../utils/math";
 
 /** Pointer tools that take the drag away from panning while one is picked. */
-export type ChartToolKind = "measure" | "zoom" | "line" | "pencil" | "level" | "rect" | "fib" | "ray";
+export type ChartToolKind = "measure" | "zoom" | "line" | "pencil" | "level" | "rect" | "ray";
 
 /** How a saved drawing is drawn from its points. */
-export type ChartDrawingShape = "line" | "rect" | "fib" | "ray";
-const SHAPED_TOOLS = ["rect", "fib", "ray"] as const;
-
-/** Retracement ratios, measured back from the drag's end toward its start. */
-const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1] as const;
+export type ChartDrawingShape = "line" | "rect" | "ray";
+const SHAPED_TOOLS = ["rect", "ray"] as const;
 
 export interface ChartDrawingPoint {
   time: number;
@@ -59,6 +56,7 @@ export function parseChartDrawings(value: unknown): ChartDrawing[] {
       || !Array.isArray(drawing.points)
       || drawing.points.length < 2
     ) return [];
+    if (drawing.id.startsWith("fib:")) continue;
     pointCount += drawing.points.length;
     if (pointCount > MAX_SHARED_DRAWING_POINTS) return [];
     const points: ChartDrawingPoint[] = [];
@@ -85,7 +83,7 @@ export function parseChartDrawings(value: unknown): ChartDrawing[] {
 }
 
 /**
- * The shape rides in the id (`fib:3`) rather than a field of its own: an older
+ * The shape rides in the id (`rect:3`) rather than a field of its own: an older
  * build refuses a saved drawing with a key it does not know and would drop every
  * drawing of the pane, while an id it does not know still draws as a line.
  */
@@ -227,20 +225,7 @@ function drawingGeometry(
     const b = corner(end.xRatio, start.yRatio);
     return { segments: [[start, a], [a, end], [end, b], [b, start]], box: [start, end], anchors: [start, end], labels: [] };
   }
-  const domain = resolveMeasureAxisDomain(panel)!;
-  const left = Math.min(start.xRatio, end.xRatio);
-  const right = Math.max(start.xRatio, end.xRatio);
-  const [from, to] = drawing.points as [ChartDrawingPoint, ChartDrawingPoint];
-  const segments: DrawingGeometry["segments"] = [];
-  const labels: DrawingGeometry["labels"] = [];
-  for (const level of FIB_LEVELS) {
-    const value = to.value + (from.value - to.value) * level;
-    const yRatio = projectCompositeValue(value, domain);
-    if (yRatio === null) continue;
-    segments.push([{ xRatio: left, yRatio }, { xRatio: right, yRatio }]);
-    labels.push({ at: { xRatio: left, yRatio }, text: `${level} ${formatCompositeCursorValue(value, domain)}` });
-  }
-  return { segments, box: null, anchors: [start, end], labels };
+  return null;
 }
 
 function projectDrawing(

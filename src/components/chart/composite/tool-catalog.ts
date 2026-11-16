@@ -7,7 +7,6 @@ const LINE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><
 const LEVEL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1.6 8h4.2M10.2 8h4.2" stroke="#000" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="2.2" fill="none" stroke="#000" stroke-width="1.4"/></svg>`;
 const RAY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="3.4" cy="8" r="2" fill="none" stroke="#000" stroke-width="1.4"/><path d="M5.4 8h9" stroke="#000" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 const RECT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2.2" y="3.6" width="11.6" height="8.8" rx="0.8" fill="#000" fill-opacity="0.18" stroke="#000" stroke-width="1.4"/></svg>`;
-const FIB_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2 3h12M2 6.4h12M2 9h12M2 13h12" stroke="#000" stroke-width="1.3" stroke-linecap="round"/></svg>`;
 const MARQUEE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2.2 6V3.4a1.2 1.2 0 0 1 1.2-1.2H6M10 2.2h2.6a1.2 1.2 0 0 1 1.2 1.2V6M13.8 10v2.6a1.2 1.2 0 0 1-1.2 1.2H10M6 13.8H3.4a1.2 1.2 0 0 1-1.2-1.2V10" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round"/></svg>`;
 
 export const CHART_TOOLS: ReadonlyArray<{
@@ -76,14 +75,6 @@ export const CHART_TOOLS: ReadonlyArray<{
     icon: RECT_ICON,
   },
   {
-    kind: "fib",
-    label: "Fib retracement",
-    shortcut: "Shift+F",
-    hint: "Drag from a swing to its end for the 23.6 to 78.6% levels, Backspace deletes",
-    glyph: "\u2261",
-    icon: FIB_ICON,
-  },
-  {
     kind: "level",
     label: "Price level",
     shortcut: "Shift+H",
@@ -101,7 +92,6 @@ export const CHART_TOOL_MENU: ReadonlyArray<{ kind: ChartToolKind; label: string
   { kind: "pencil", label: "Freehand", accelerator: "Shift+P" },
   { kind: "ray", label: "Horizontal Ray", accelerator: "Shift+J" },
   { kind: "rect", label: "Rectangle", accelerator: "Shift+B" },
-  { kind: "fib", label: "Fib Retracement", accelerator: "Shift+F" },
   { kind: "level", label: "Price Level", accelerator: "Shift+H" },
 ];
 
@@ -118,7 +108,6 @@ export const KEYBOARD_TOOL_HINTS: Record<ChartToolKind, {
   pencil: { start: "draw", startTitle: "Draw Freehand", finish: "place", finishTitle: "Place Drawing" },
   ray: { start: "draw", startTitle: "Draw Ray", finish: "place", finishTitle: "Place Ray" },
   rect: { start: "draw", startTitle: "Draw Rectangle", finish: "place", finishTitle: "Place Rectangle" },
-  fib: { start: "draw", startTitle: "Draw Retracement", finish: "place", finishTitle: "Place Retracement" },
   level: { start: "add level", startTitle: "Add Level", finish: "add level", finishTitle: "Add Level" },
 };
 
@@ -129,6 +118,5 @@ export const ARMED_TOOL_BY_INTERACTION = {
   "arm-pencil": "pencil",
   "arm-ray": "ray",
   "arm-rect": "rect",
-  "arm-fib": "fib",
   "arm-level": "level",
 } as const satisfies Record<string, ChartToolKind>;

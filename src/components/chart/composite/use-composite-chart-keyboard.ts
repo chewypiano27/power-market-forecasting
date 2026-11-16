@@ -569,8 +569,7 @@ export function useCompositeChartKeyboard({
         || interaction === "arm-line"
         || interaction === "arm-pencil"
         || interaction === "arm-ray"
-        || interaction === "arm-rect"
-        || interaction === "arm-fib") && !scene)
+        || interaction === "arm-rect") && !scene)
       || (interaction === "arm-level" && !levelsEditable)
       || (interaction === "delete-drawing" && !canDeleteDrawing)
       || (interaction === "cycle-colour" && !isDrawingTool(armedTool) && !selectedDrawingId)
@@ -592,7 +591,6 @@ export function useCompositeChartKeyboard({
       case "arm-pencil":
       case "arm-ray":
       case "arm-rect":
-      case "arm-fib":
       case "arm-level":
         onActivate?.();
         armTool(ARMED_TOOL_BY_INTERACTION[interaction]);
