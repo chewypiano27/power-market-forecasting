@@ -10,7 +10,6 @@ import { debugLog } from "../../utils/debug-log";
 
 import { EventBus } from "../event-bus";
 
-import { isReservedBuiltinPluginId } from "../ownership";
 import { createPluginPersistence } from "../plugin-persistence";
 
 import { withPluginRender, type PluginRuntimeAccess } from "../runtime";
@@ -243,9 +242,6 @@ export class PluginRegistry implements PluginRuntimeAccess {
 
   async register(plugin: WorkstationPlugin): Promise<void> {
     this.registryLog.info(`Registering plugin: ${plugin.id} v${plugin.version ?? "?"}`);
-    if (isReservedBuiltinPluginId(plugin.id)) {
-      throw new Error(`Plugin id is reserved by a built-in module: ${plugin.id}`);
-    }
     if (this.plugins.has(plugin.id)) throw new Error(`Plugin already registered: ${plugin.id}`);
     this.plugins.set(plugin.id, plugin);
     try {
