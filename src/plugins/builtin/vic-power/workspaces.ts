@@ -10,7 +10,7 @@ export function createWorkstationLayouts(): SavedLayout[] {
     instances: [{ paneId, instanceId: `${paneId}:main`, binding: { kind: "none" } }],
     dockRoot: leaf(paneId), floating: [], detached: [],
   });
-  const names = ["Market Desk", "Weather & Load Risk", "Regional Spot"];
+  const names = ["Market Desk", "Weather Outlook", "Regional Spot"];
   const layouts: SavedLayout[] = PANE_IDS.map((paneId, index) => ({
     id: `vic1-workspace-${index + 1}`, name: names[index]!, layout: single(paneId), paneState: {},
     focusedPaneId: `${paneId}:main`,

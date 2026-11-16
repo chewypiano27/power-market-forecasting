@@ -147,7 +147,7 @@ export function createVicPowerDemoSnapshot(): VicPowerSnapshot {
       reasons: [
         `${deviation >= 0 ? "+" : ""}${deviation.toFixed(1)}°C against the February reference high`,
         `${high - low}° intraday range increases ramp risk`,
-        `Peak weather-load window ${risk.window}`,
+        `Peak weather window ${risk.window}`,
         ...(high >= 40 ? ["Extreme heat scenario for presentation-mode stress testing"] : []),
       ],
       hours,
@@ -659,7 +659,7 @@ async function fetchWeatherCalendar(fetcher: HttpFetchTransport): Promise<{
     const reasons = [
       `${deviation >= 0 ? "+" : ""}${deviation.toFixed(1)}°C against the ${new Date(`${date}T12:00:00`).toLocaleDateString("en-AU", { month: "long" })} reference high`,
       `${dailyRange.toFixed(0)}° intraday range; steepest hourly ramp ${maxRamp.toFixed(1)}°`,
-      `Peak weather-load window ${window.label}`,
+      `Peak weather window ${window.label}`,
       ...(maxWind >= 30 ? [`Hourly wind reaches ${Math.round(maxWind)} km/h`] : []),
       ...(rain >= 5 ? [`${rain.toFixed(1)} mm forecast precipitation`] : []),
       ...(calendar.label ? [calendar.label] : []),

@@ -18,7 +18,7 @@ interface StartHereRow {
  */
 const START_HERE_ROWS: readonly StartHereRow[] = [
   { label: "Open the VIC market desk", codes: ["VIC"] },
-  { label: "Review weather and load risk", codes: ["VICW"] },
+  { label: "Check weather outlook", codes: ["VICW"] },
   { label: "Compare regional spot prices", codes: ["VICS"] },
 ];
 

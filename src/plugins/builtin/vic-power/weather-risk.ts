@@ -43,7 +43,7 @@ export function weatherRisk(hours: readonly WeatherRiskHour[], high: number, low
     { id: "humidity", label: "Humidity", points: Math.max(0, maxHumidity - 80) * 0.3 },
     { id: "rain", label: "Precipitation", points: Math.min(12, rain * 1.5) },
     { id: "ramp", label: "Hourly temperature ramp", points: Math.max(0, maxRamp - 2) * 4 },
-    { id: "window", label: "Peak three-hour weather load", points: windowScore * 0.35 },
+    { id: "window", label: "Peak three-hour weather score", points: windowScore * 0.35 },
   ];
   const rawScore = drivers.reduce((sum, driver) => sum + driver.points, 0);
   const riskScore = Math.min(100, Math.round(rawScore));

@@ -48,7 +48,7 @@ import { FILL_REST } from "../../../components/ui/fill";
 
 const TEMPERATURE_KEY = "temperature-deviation";
 const GLANCE_PANELS = [{ id: "price", label: "VIC1 RRP", height: 1 }];
-const RISK_PANELS = [{ id: "temperature", label: "Melbourne temperature °C", height: 1 }, { id: "risk", label: "Hourly weather-load score", height: 1 }];
+const RISK_PANELS = [{ id: "temperature", label: "Melbourne temperature °C", height: 1 }, { id: "risk", label: "Hourly weather stress score", height: 1 }];
 const SPOT_PANELS = [{ id: "regional-price", label: "Regional RRP $/MWh", height: 2 }, { id: "regional-spread", label: "VIC minus neighbour $/MWh", height: 1 }];
 const LIVE_REFRESH_MS = 5 * 60 * 1000;
 const signed = (value: number, digits = 0) => `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
@@ -345,8 +345,8 @@ export function VicDemandPricePane({ width, height, focused }: PaneProps) {
               ? new Date(`${selected.date}T12:00:00`).toLocaleDateString(getUiLocale(), { weekday: "long", month: "long", day: "numeric" })
               : `Day ${selected.day}`} />
             <KeyValueRow label="Forecast" value={`${selected.low}° / ${selected.high}°`} />
-            <KeyValueRow label="Weather-load score" value={`${selected.riskScore ?? 0} / 100 · ${riskLabel(selected.volatility)}`} tone={riskTone(selected.volatility)} />
-            <KeyValueRow label="Peak risk window" value={selected.riskWindow ?? "—"} tone={riskTone(selected.volatility)} />
+            <KeyValueRow label="Weather stress score" value={`${selected.riskScore ?? 0} / 100 · ${riskLabel(selected.volatility)}`} tone={riskTone(selected.volatility)} />
+            <KeyValueRow label="Peak weather window" value={selected.riskWindow ?? "—"} tone={riskTone(selected.volatility)} />
             {(selected.hours?.length ?? 0) > 0 ? (
               <CompositeChart series={selectedRiskSeries} panels={RISK_PANELS} width={width - 2} height={12} focused={false}
                 navigable={false} showLegend showTimeAxis timeZone={WEATHER_TIME_ZONE} formatValue={(value, entry) => `${value.toFixed(1)} ${t(entry.unit)}`} />

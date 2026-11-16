@@ -12,7 +12,7 @@ const EXPLANATIONS: Record<string, string> = {
   humidity: "Hourly humidity above 80%.",
   rain: "Forecast rainfall accumulated over the day.",
   ramp: "Temperature changes above 2°C between consecutive hours.",
-  window: "The strongest continuous three-hour weather load.",
+  window: "The highest average weather score across three consecutive hours.",
 };
 const DRIVER_ORDER = ["deviation", "range", "wind", "humidity", "rain", "ramp", "window"];
 

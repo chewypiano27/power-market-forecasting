@@ -1,7 +1,7 @@
 /** Spanish and Simplified Chinese workstation copy. */
 export const workstationMarket: Record<string, readonly [string, string]> = {
   "Market Desk": ["Mercado VIC", "市场概览"],
-  "Weather & Load Risk": ["Clima y riesgo de demanda", "天气与负荷风险"],
+  "Weather Outlook": ["Pronóstico meteorológico", "天气预报"],
   "Regional Spot": ["Mercado regional", "区域现货"],
   "Trader View": ["Vista de operaciones", "交易视图"],
   "Demo": ["Demostración", "演示"],
@@ -39,7 +39,7 @@ export const workstationMarket: Record<string, readonly [string, string]> = {
   "Demand MW": ["Demanda MW", "需求 MW"],
   "Price $/MWh": ["Precio $/MWh", "电价 $/MWh"],
   "Melbourne temperature °C": ["Temperatura en Melbourne °C", "墨尔本气温 °C"],
-  "Hourly weather-load score": ["Índice horario de carga climática", "逐小时天气负荷评分"],
+  "Hourly weather stress score": ["Índice horario de estrés meteorológico", "逐小时天气压力评分"],
   "Regional RRP $/MWh": ["Precio regional $/MWh", "区域参考价 $/MWh"],
   "VIC minus neighbour $/MWh": ["VIC menos vecino $/MWh", "维州减邻州 $/MWh"],
 };
