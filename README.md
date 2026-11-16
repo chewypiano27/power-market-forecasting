@@ -5,8 +5,9 @@ weather risk, peak demand forecasts and Buy/Sell decisions.
 
 ## Install the ready-to-run macOS app
 
-Use the **`VIC1-1.0.0-macos-x64.zip` supplied with the project submission**.
-It contains the app and its runtime: no Bun, Git, Python, API key or compilation
+Use the **`VIC1-1.0.0-macos-arm64.zip` (Apple silicon)** or
+**`VIC1-1.0.0-macos-x64.zip` (Intel)** supplied with the project submission.
+Each contains the app and its runtime: no Bun, Git, Python, API key or compilation
 is needed. A public binary download has not been published on GitHub.
 
 1. Download the ZIP to your Mac and double-click it to extract it.
@@ -16,10 +17,12 @@ is needed. A public binary download has not been published on GitHub.
 
 Choose the ZIP matching **Apple menu → About This Mac**: a **Chip** such as M1/M2/M3/M4 means `macos-arm64`; an **Intel processor** means `macos-x64`. The native build workflow produces separate packages, not one universal app.
 
-The locally verified package targets **Intel Macs (x64)**. On a Mac
-with Apple silicon, macOS may offer to install Rosetta when opening it; that
-configuration has not been verified. Windows and Linux native packages are produced by the build workflow below when their jobs succeed; interactive use has not been verified on those platforms. The recorded build environment is macOS 14.8.3 on Intel;
-other macOS versions have not been verified.
+Both Mac packages have passed native CI installation of build dependencies,
+typechecking and packaging. The extracted Intel app has also started with a
+fresh local profile on macOS 14.8.3. Apple silicon, Windows and Linux still
+require interactive installation and use checks; a successful package build
+does not establish that these checks passed. Other macOS versions have not
+been verified interactively.
 
 ### If macOS blocks the first launch
 
@@ -82,7 +85,21 @@ bun run desktop:dev
 
 No account, API key, Python environment, local data cache or signing certificate
 is needed to build and run the workstation. Python is only needed for the
-separate model reproduction scripts, not for the installed app.
+separate model reproduction scripts, not for the installed app. To reproduce
+the model fit on macOS or Linux, install Python 3.11 or newer and run:
+
+```sh
+python3 -m venv .venv-model
+.venv-model/bin/pip install -r requirements-model.txt
+bun run scripts/rebuild-demand-training-data.ts --output /tmp/audited-demand-dataset.json
+.venv-model/bin/python scripts/reproduce-demand-peak.py --dataset /tmp/audited-demand-dataset.json
+```
+
+On Windows use `.venv-model\Scripts\python.exe -m pip install -r requirements-model.txt`
+and `.venv-model\Scripts\python.exe` for the replay command, and replace `/tmp/`
+with an existing local temporary folder. See [model reproduction](docs/demand-model-reproduction.md)
+for the source archive requirements and audit checks. These commands download
+data and check the fit; installing the desktop app does not perform this audit.
 
 ## Create a macOS package
 
