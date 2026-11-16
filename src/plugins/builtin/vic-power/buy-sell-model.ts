@@ -17,7 +17,7 @@ export const BUY_SELL_MODEL = {
     0.015451495263414758, 0.020740637534012733, 0.013609730901069506, -0.01849227398858269],
   intercept: -5.887194616637691e-05,
   holdout: { from: "2026-11-01", through: "2026-11-15", hours: 360, calls: 143, correct: 96,
-    hitRate: 96 / 143, coverage: 143 / 360, baselineHitRate: 206 / 360 },
+    hitRate: 96 / 143, coverage: 143 / 360, baselineCorrect: 85, baselineCalls: 143, baselineHitRate: 85 / 143 },
 } as const;
 
 export type BuySellAction = "BUY" | "SELL" | "HOLD";
