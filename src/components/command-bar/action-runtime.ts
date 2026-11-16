@@ -7,7 +7,6 @@ import {
 import type { PluginRegistry } from "../../plugins/registry";
 import type { AppAction, AppState } from "../../state/app/context";
 
-import type { TickerFinancials } from "../../types/financials";
 import type { TickerRecord } from "../../types/ticker";
 import type { ThemePickerHandle } from "./theme-picker";
 
@@ -23,7 +22,6 @@ import type { CommandBarRoute } from "./workflow/types";
 
 interface UseCommandBarActionRuntimeOptions {
   activeCollectionId: string | null;
-  activeFinancials: TickerFinancials | null;
   activeTickerData: TickerRecord | null;
   activeTickerSymbol: string | null;
   closeAll: (options?: { revertThemePreview?: boolean }) => void;
@@ -47,7 +45,6 @@ interface UseCommandBarActionRuntimeOptions {
 
 export function useCommandBarActionRuntime({
   activeCollectionId,
-  activeFinancials,
   activeTickerData,
   activeTickerSymbol,
   closeAll,
@@ -125,7 +122,6 @@ export function useCommandBarActionRuntime({
 
   } = useCommandBarRouteActions({
     activeCollectionId,
-    activeFinancials,
     activeTickerData,
     activeTickerSymbol,
     closeAll,

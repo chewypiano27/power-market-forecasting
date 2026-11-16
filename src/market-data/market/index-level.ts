@@ -1,5 +1,3 @@
-import { classifyInstrumentType } from "../../tickers/instrument-kind";
-
 /**
  * The unit an index level is in, as a chart's axis and series name it. A
  * generic future on an index reads in the same points.
@@ -18,5 +16,6 @@ export const INDEX_POINTS_EXPORT_UNIT = "index points";
  * currency its members trade in.
  */
 export function isIndexLevel(instrumentType: string | null | undefined): boolean {
-  return classifyInstrumentType(instrumentType) === "index";
+  const normalized = (instrumentType ?? "").trim().toUpperCase().replace(/[\s_-]+/g, "");
+  return normalized === "IND" || normalized === "INDEX" || normalized === "IDX";
 }

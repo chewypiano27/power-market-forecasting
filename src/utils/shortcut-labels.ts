@@ -11,8 +11,8 @@ function isMacShortcutPlatform(platform: ShortcutPlatform = detectShortcutPlatfo
   return platform === "darwin";
 }
 
-export function getShortcutDisplayMode(uiKind: "opentui" | "desktop-web" | undefined): ShortcutDisplayMode {
-  return uiKind === "opentui" ? "terminal" : "platform";
+export function getShortcutDisplayMode(_uiKind: "desktop-web" | undefined): ShortcutDisplayMode {
+  return "platform";
 }
 
 function getPrimaryShortcutModifier(

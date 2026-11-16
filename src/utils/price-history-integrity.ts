@@ -1,8 +1,7 @@
 import type { PricePoint } from "../types/financials";
 
-type ReportedPricePoint = Readonly<Omit<PricePoint, "date" | "historySource"> & {
+type ReportedPricePoint = Readonly<Omit<PricePoint, "date"> & {
   date: string;
-  historySource?: Readonly<NonNullable<PricePoint["historySource"]>>;
 }>;
 
 export interface PriceHistoryIntegrity {

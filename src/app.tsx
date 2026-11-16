@@ -1,4 +1,4 @@
-import { Box, ContextMenuProvider, useNativeRenderer, useRendererHost, useUiHost } from "./ui";
+import { Box, ContextMenuProvider, useNativeRenderer, useRendererHost } from "./ui";
 import { ToastViewport, useToastHost } from "./ui/toast";
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { AppProvider, useAppDispatch, useAppSelector, useAppStateRef, type AppState } from "./state/app/context";
@@ -238,7 +238,7 @@ function AppInner({
   }, [state.config.layouts, state.config, stateRef]);
 
   const chrome = useAppChromeShown();
-  const keybindingHost = useUiHost().kind === "opentui" ? "terminal" : "desktop";
+  const keybindingHost = "desktop";
   const keybindings = useResolvedKeybindings(state.config.keybindings, keybindingHost);
   useAppGlobalShortcuts({
     dispatch,

@@ -32,7 +32,6 @@ export function CommandBar({
 }: CommandBarProps) {
   const {
     activeCollectionId,
-    activeFinancials,
     activeTickerData,
     activeTickerSymbol,
     availableCommands: allAvailableCommands,
@@ -128,7 +127,6 @@ export function CommandBar({
 
   } = useCommandBarActionRuntime({
     activeCollectionId,
-    activeFinancials,
     activeTickerData,
     activeTickerSymbol,
     closeAll: closeAfterRun,

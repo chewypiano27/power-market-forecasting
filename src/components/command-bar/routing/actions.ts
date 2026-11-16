@@ -2,7 +2,6 @@ import { useCallback, type Dispatch, type MutableRefObject } from "react";
 import type { PluginRegistry } from "../../../plugins/registry";
 import { useAppGetState, type AppAction, type AppState } from "../../../state/app/context";
 import { t } from "../../../i18n";
-import type { TickerFinancials } from "../../../types/financials";
 import type { TickerRecord } from "../../../types/ticker";
 
 import {
@@ -24,7 +23,6 @@ type OpenModeRoute = (
 
 interface UseCommandBarRouteActionsOptions {
   activeCollectionId: string | null;
-  activeFinancials: TickerFinancials | null;
   activeTickerData: TickerRecord | null;
   activeTickerSymbol: string | null;
   closeAll: CloseAll;
@@ -45,7 +43,6 @@ interface UseCommandBarRouteActionsOptions {
 
 export function useCommandBarRouteActions({
   activeCollectionId,
-  activeFinancials,
   activeTickerData,
   activeTickerSymbol,
   closeAll,

@@ -158,13 +158,6 @@ export interface TimeSeriesPoint {
   provenance?: {
     priceHistoryIntegrity?: import("../utils/price-history-integrity").PriceHistoryIntegrity;
     valuationPriceIssues?: import("./valuation-price").ValuationPriceIssue[];
-    /** @deprecated No longer populated. */
-    earningsResult?: import("../types/financials").EarningsResultProvenance;
-    unavailableEarnings?: import("../types/financials").EarningsField[];
-    /** @deprecated No longer populated. */
-    operatingResult?: import("../types/financials").OperatingResult;
-    /** @deprecated No longer populated. */
-    operatingResultAggregation?: import("../types/financials").OperatingResultAggregation;
     providerId?: string;
     quality?: "reported" | "derived" | "estimated";
     /** Reporting currency of this monetary statement observation. */

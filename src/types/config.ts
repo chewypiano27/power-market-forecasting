@@ -306,7 +306,6 @@ const TICKER_PANE_IDS = new Set([
   "earnings-estimates",
   "historical-prices",
   "returns",
-  "ibkr-trading",
 ]);
 
 /**

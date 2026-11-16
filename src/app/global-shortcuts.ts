@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch } from "react";
 import { useShortcut } from "../react/input";
-import { useNativeRenderer, useRendererHost, useUiHost } from "../ui";
+import { useNativeRenderer } from "../ui";
 import { useDialogState } from "../ui/dialog";
 import { useToastHost } from "../ui/toast";
 import type { PluginRegistry } from "../plugins/registry";
@@ -63,8 +63,6 @@ export function useAppGlobalShortcuts({
 }) {
   const dialogOpen = useDialogState((s) => s.isOpen);
   const nativeRenderer = useNativeRenderer();
-  const rendererHost = useRendererHost();
-  const uiKind = useUiHost().kind;
   const toastHost = useToastHost();
   useKeybindingIssueNotice(keybindings, pluginRegistry, state.initialized);
   // Every action here runs once per press: a held key, or a terminal that does
@@ -106,9 +104,7 @@ export function useAppGlobalShortcuts({
       return false;
     };
 
-    // Terminals send Ctrl; the browser and the desktop webview send Cmd on
-    // macOS, which the OpenTUI host also reports as `super` under the kitty
-    // protocol. While a dialog, the command bar or an editable field owns the
+    // The desktop keyboard bridge reports Cmd as `super` on macOS. While a dialog, the command bar or an editable field owns the
     // keyboard the digit must not move layouts, but it still has to be
     // swallowed there or the webview hands Cmd-digit to the browser's own tab
     // switcher.
@@ -199,7 +195,6 @@ export function useAppGlobalShortcuts({
 
     if (!isDetachedWindow && action === "quit") {
       if (ranAlready(action, false)) return;
-      if (uiKind === "opentui") rendererHost.requestExit();
     } else if (!action) {
       const disabledPlugins = new Set(state.config.disabledPlugins || []);
       const keybindingsConfig = state.config.keybindings;
