@@ -150,11 +150,14 @@ Open a successful run and download the artifact for the recipient's computer:
 | --- | --- | --- |
 | Apple silicon Mac | `VIC1-macos-arm64` | `macos-arm64/VIC1-1.0.0-macos-arm64.zip` |
 | Intel Mac | `VIC1-macos-x64` | `macos-x64/VIC1-1.0.0-macos-x64.zip` |
-| Windows x64 | `VIC1-windows-x64` | The `*-Setup.exe` file |
+| Windows x64 | `VIC1-windows-x64` | The `*-Setup.zip` archive |
 | Linux x64 | `VIC1-linux-x64` | The installer `.tar.gz` archive |
 
 The Mac ZIPs contain the `.app`: follow the installation instructions above.
-For Windows, run the setup `.exe` from a trusted successful build; it is unsigned
+For Windows, use **Extract All** on the `*-Setup.zip` archive, then open
+`VIC1 Power Trader Workstation-Setup.exe` in the extracted folder. Keep the
+`.installer` folder beside the executable: it contains the app payload. Share
+the complete ZIP, not the small `.exe` by itself. The installer is unsigned
 and Windows may warn about the publisher. On Linux, extract the installer
 archive and use its included installer. These two workflows still need
 interactive installation checks on the recipient's operating system; a passing
