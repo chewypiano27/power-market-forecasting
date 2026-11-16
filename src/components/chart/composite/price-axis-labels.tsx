@@ -14,6 +14,20 @@ function formatAxisCell(label: string | null, width: number): string {
   return ([...label].length > width ? "…" : label).padStart(width);
 }
 
+function signedAxisLabelValue(label: string | null): number | null {
+  if (!label) return null;
+  const match = label.trim().match(/^([+\-−])\s*(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const magnitude = Number(match[2]);
+  if (!Number.isFinite(magnitude) || magnitude === 0) return 0;
+  return match[1] === "+" ? magnitude : -magnitude;
+}
+
+function signedAxisValueColor(value: number, axisTickColor?: (value: number) => string): string {
+  return axisTickColor?.(value)
+    ?? (value < 0 ? "#ff4d4f" : value > 0 ? "#32c875" : "#ffffff");
+}
+
 interface PriceAxisMarker {
   row: number;
   pixelY: number;
@@ -139,6 +153,7 @@ export function placeAxisTicks({
   return kept
     .filter((tick) => badgeCentersPx.every((center) => Math.abs(tick.topPx - center) >= cellHeightPx))
     .map((tick) => ({
+      value: tick.value,
       label: tick.label,
       ratio: tick.ratio,
       topPercent: (tick.topPx / Math.max(pixelHeight - 1, 1)) * 100,
@@ -244,12 +259,16 @@ export function PriceAxisLabels({
         const label = isCursorRow
           ? cursorLabel
           : marker?.label ?? (usePixelTicks || (footButton && row === height - 1) ? null : axisLabels.get(row) ?? null);
+        const labelValue = signedAxisLabelValue(label);
+        const mappedValue = axisValueByRow?.get(row);
         return (
           <Box key={row} height={1}>
             {renderAxisLabel(
               label,
-              isCursorRow ? cursorColor : marker ? marker.color
-                : axisValueByRow?.has(row) ? axisTickColor?.(axisValueByRow.get(row)!) ?? axisColor
+              isCursorRow ? cursorColor
+                : labelValue !== null ? signedAxisValueColor(labelValue, axisTickColor)
+                  : marker ? marker.color
+                  : mappedValue !== undefined ? signedAxisValueColor(mappedValue, axisTickColor)
                   : axisColor,
             )}
           </Box>
@@ -271,7 +290,7 @@ export function PriceAxisLabels({
             }}
           >
             <Box flexDirection="row" width={axisWidth} justifyContent={axisLabelJustify} overflow="hidden">
-              <Text fg={tick.value === undefined ? axisColor : axisTickColor?.(tick.value) ?? axisColor} selectable={false}>{tick.label}</Text>
+              <Text fg={tick.value === undefined ? axisColor : signedAxisValueColor(tick.value, axisTickColor)} selectable={false}>{tick.label}</Text>
             </Box>
             {axisPaddingWidth > 0 ? <Box width={axisPaddingWidth} /> : null}
           </Box>
@@ -294,7 +313,9 @@ export function PriceAxisLabels({
           }}
         >
           <Box flexDirection="row" width={axisWidth} justifyContent={axisLabelJustify} overflow="hidden">
-            <Text fg={marker.color} selectable={false}>{formatAxisCell(marker.label, axisWidth).trimStart()}</Text>
+            <Text fg={signedAxisLabelValue(marker.label) !== null
+              ? signedAxisValueColor(signedAxisLabelValue(marker.label)!, axisTickColor)
+              : marker.color} selectable={false}>{formatAxisCell(marker.label, axisWidth).trimStart()}</Text>
           </Box>
           {axisPaddingWidth > 0 ? <Box width={axisPaddingWidth} /> : null}
         </Box>

@@ -442,7 +442,13 @@ function drawColumns(
 ): void {
   const baseline = pixelY(0, domain, height) ?? height - 1;
   for (const projected of series.points) {
-    const fill = projected.value < 0 ? negativeColor : projected.point.fell ? fallColor : color;
+    // A negativeColor marks a signed column series (for example, a daily
+    // result relative to zero). In that case the sign owns the color; the
+    // preceding point's direction must not replace positive bars with the
+    // chart-wide fall color.
+    const fill = series.source.negativeColor
+      ? projected.value < 0 ? negativeColor : color
+      : projected.point.fell ? fallColor : color;
     const point = pixelPoint(projected, width, height, domain.manual);
     const geometry = columnPixelGeometry(projected, width, layout, widthByFamily);
     fillRect(

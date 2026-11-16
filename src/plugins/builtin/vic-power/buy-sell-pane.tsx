@@ -33,6 +33,11 @@ function formatMarketTime(time: string | null | undefined): string {
   }).format(instant);
 }
 
+function formatHitRateDelta(value: number): string {
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? "+" : ""}${rounded}pp`;
+}
+
 type MarketAccumulator = { demand: number; price: number; count: number };
 
 function hourAccumulator(groups: Map<string, MarketAccumulator>, timestamp: string, price: number, demand: number): void {
@@ -206,14 +211,17 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
       <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate vs 50% · pp" }]} width={width}
         height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
         levels={{ seriesId: "daily-hit-rate", items: [
-          { id: "coin-flip", value: 0, color: colors.textDim, label: "50% hit rate", dashed: true, editable: false, actionable: false },
+          { id: "coin-flip", value: 0, color: "#ffffff", dashed: true, editable: false, actionable: false },
         ] }}
         referenceLevels={{ seriesId: "daily-hit-rate", items: [
           { id: "negative-axis", value: -20, color: colors.negative, label: "−20pp", editable: false, actionable: false },
         ] }}
-        axisValueColor={(value) => value < 0 ? colors.negative : value > 0 ? colors.positive : colors.textDim}
-        formatAxisValue={(value) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp`}
-        formatValue={(value) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp`} />
+        axisValueColor={(value) => {
+          const rounded = Math.round(value);
+          return rounded < 0 ? "#ff4d4f" : rounded > 0 ? "#32c875" : "#ffffff";
+        }}
+        formatAxisValue={formatHitRateDelta}
+        formatValue={formatHitRateDelta} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · evaluation through {date}").replace("{date}", evaluation?.through?.slice(0, 10) ?? "—")}</Text>
         <Text fg={colors.textDim}>{t("Each bar shows the day's directional hit rate relative to 50%; green is above, red below.")}</Text>
