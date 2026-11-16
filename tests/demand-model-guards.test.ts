@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { buildDemandFeatures, dailyDemand, demandDayStart, demandIssue, INTERVAL_MS, shiftDemandDate, type DemandDay, type DemandForecast } from "../src/plugins/builtin/vic-power/demand-features";
-import { meanPeakCorrection, validatePeakArtifact } from "../src/plugins/builtin/vic-power/demand-peak";
+import { buildDemandFeatures, DEMAND_FEATURES, dailyDemand, demandDayStart, demandIssue, INTERVAL_MS, shiftDemandDate, type DemandDay, type DemandForecast } from "../src/plugins/builtin/vic-power/demand-features";
+import { meanPeakCorrection, PEAK_FEATURES, validatePeakArtifact } from "../src/plugins/builtin/vic-power/demand-peak";
 import artifact from "../src/plugins/builtin/vic-power/demand-peak-artifact.json";
 
 const model = validatePeakArtifact(artifact)!;
@@ -37,6 +37,15 @@ function history(date: string, count = 7): DemandDay[] {
     invalidIntervals: 0, duplicateIntervals: 0, conflictingIntervals: 0, complete: true,
   }));
 }
+
+test("peak artifact extends the shared demand feature contract with the weekday peak", () => {
+  const features = buildDemandFeatures(target, forecast(target), history(target));
+  expect(features.status).toBe("ready");
+  if (features.status !== "ready") throw new Error(features.reason);
+  expect(features.values).toHaveLength(DEMAND_FEATURES.length);
+  expect(PEAK_FEATURES).toEqual([...DEMAND_FEATURES, "sameWeekdayPeak"]);
+  expect(artifact.featureNames).toEqual(PEAK_FEATURES);
+});
 
 test("the forecast issue is fixed at 18:00 AEST on the previous NEM day", () => {
   const issue = demandIssue(target);

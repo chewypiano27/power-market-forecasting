@@ -1,5 +1,8 @@
 import importlib.util
 import unittest
+import json
+import tempfile
+from unittest.mock import patch
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -30,6 +33,29 @@ class DemandPeakReproductionTests(unittest.TestCase):
         self.assertEqual(train[0]["targetDate"], "2024-03-14")
         self.assertEqual(train[-1]["targetDate"], "2025-03-30")
         self.assertEqual(test[-1]["targetDate"], "2026-10-31")
+
+    def test_parity_uses_artifact_penalty_instead_of_a_fixed_expected_value(self):
+        data = synthetic_dataset()
+        train, _, _ = MODEL.partition(data)
+        fitted = MODEL.fit(train, 1.0)
+        artifact = {"sourceManifestHash": data["sourceManifestHash"],
+                    "featureNames": data["featureNames"], "ridgePenalty": 1.0,
+                    "biasCorrection": {"days": 7}, "intercept": fitted["intercept"],
+                    **{name: fitted[name].tolist() for name in ("means", "scales", "weights")}}
+        history = {name: 0 for name in ("maeMw", "rmseMw", "biasMw", "baselineMaeMw")}
+        with tempfile.TemporaryDirectory() as folder:
+            paths = [Path(folder) / name for name in ("data.json", "artifact.json", "history.json")]
+            for path, value in zip(paths, (data, artifact, history)):
+                path.write_text(json.dumps(value))
+            with patch.object(MODEL, "select_penalty", return_value=({"penalty": 1.0, "maeMw": 0}, [])):
+                self.assertTrue(MODEL.run(*paths)["reproduced"])
+                artifact["ridgePenalty"] = 0.1
+                paths[1].write_text(json.dumps(artifact))
+                self.assertFalse(MODEL.run(*paths)["deployedArtifactMatch"]["penalty"])
+                del artifact["ridgePenalty"]
+                paths[1].write_text(json.dumps(artifact))
+                with self.assertRaisesRegex(ValueError, "ridgePenalty"):
+                    MODEL.run(*paths)
 
     def test_missing_day_invalidates_the_audited_split(self):
         data = synthetic_dataset()
