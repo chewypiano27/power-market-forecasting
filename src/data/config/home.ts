@@ -43,7 +43,7 @@ export interface Vic1Dirs {
   pluginCache: string;
   /**
    * The standalone binary's render library, copied out of the binary when the
-   * temp folder cannot hold or run it (see renderers/opentui/render-lib).
+   * temp folder cannot hold or run it.
    */
   nativeCache: string;
 }

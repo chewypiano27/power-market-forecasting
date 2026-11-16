@@ -1,13 +1,8 @@
 /**
  * Public React runtime surface for external plugins (`vic1/react`).
  *
- * These hooks are the renderer-neutral way for plugin panes to reach app
- * services. Plugin render code must use them instead of importing OpenTUI,
- * Electrobun, or DOM APIs directly — the renderer decides how each one is
- * fulfilled, which is what lets the same plugin run in the terminal, on the
- * desktop, and (for web-capable plugins) in the browser.
- *
- * Compatibility commitment: see the note in `./utils.ts`.
+ * These hooks let plugin panes reach app services through the desktop host.
+ * Keep renderer implementation details behind this surface.
  */
 export { usePluginConfigState, usePluginPaneState } from "../plugins/runtime";
 

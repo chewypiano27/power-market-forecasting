@@ -29,7 +29,7 @@ function insetCells(source: Record<string, unknown>, kind: "padding" | "margin",
 }
 
 /**
- * OpenTUI lays a ScrollBox's children out in an inner content box styled by
+ * ScrollBox children use an inner content box styled by
  * `contentOptions`, so panes pad scrolled content there. The DOM scroller is
  * its own content box: the content padding and margins go on it as padding,
  * on top of the ScrollBox's own, so the content does not sit flush against
@@ -53,7 +53,7 @@ export const WebScrollBox = forwardRef<ScrollBoxRenderable, Record<string, unkno
     const elementRef = useRef<HTMLDivElement | null>(null);
     const isHeaderLikeScroller = isHeaderStripScrollBox(props);
     /**
-     * OpenTUI's ScrollBox scrolls vertically unless told otherwise, so this one
+     * ScrollBox scrolls vertically unless told otherwise, so the DOM host
      * has to as well: a pane that renders a ScrollBox and nothing more expects
      * the wheel and the arrow keys to work (the pane keyboard scroll registry
      * reads the same rule). The one-row horizontal strips (tab bars, table

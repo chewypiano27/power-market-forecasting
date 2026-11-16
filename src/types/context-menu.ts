@@ -1,5 +1,3 @@
-import type { TickerFinancials } from "./financials";
-import type { TickerRecord } from "./ticker";
 
 type ContextMenuRole =
   | "undo"
@@ -54,12 +52,6 @@ export type ContextMenuContext =
     paneType: string;
     title: string;
     floating: boolean;
-  }
-  | {
-    kind: "ticker";
-    symbol: string;
-    ticker: TickerRecord;
-    financials: TickerFinancials | null;
   }
   | {
     kind: "link";

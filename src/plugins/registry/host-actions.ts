@@ -1,7 +1,5 @@
 import type { PaneRuntimeState } from "../../core/state/app/state";
 
-import type { PaneImageCapture } from "../../shares/pane-image";
-
 import type { AppConfig, LayoutConfig } from "../../types/config";
 
 import type { AppNotificationDelivery, AppNotificationRequest, PaneSettingField, PaneTemplateCreateOptions } from "../../types/plugin";
@@ -27,11 +25,6 @@ export interface PluginHostActions {
   openBuiltInWorkflow(actionId: string): void;
   /** `options.fieldKey` starts the cursor on that setting, as a setting picked in the command bar does. */
   openPaneSettings(paneId?: string, options?: { fieldKey?: string }): void;
-  /**
-   * A picture of a pane (the focused one when omitted) as it looks now, its
-   * footer reading as a dated status line. Not on the plugin API.
-   */
-  capturePaneImage(paneId?: string): Promise<PaneImageCapture>;
   openWindowMode(paneId?: string, mode?: WindowEditMode): void;
   /** The shell's fullscreen toggle for a pane; false when there is nothing to fill the window with. */
   togglePaneFullscreen(paneId: string): boolean;
@@ -82,7 +75,6 @@ export function createDefaultHostActions(current?: () => Pick<PluginHostActions,
     openPluginCommandWorkflow: () => {},
     openBuiltInWorkflow: () => {},
     openPaneSettings: () => {},
-    capturePaneImage: async () => { throw new Error("Pictures of panes are not available here."); },
     openWindowMode: () => {},
     togglePaneFullscreen: () => false,
     movePaneToNewLayout: () => false,

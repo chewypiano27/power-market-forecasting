@@ -251,7 +251,7 @@ export function Tabs({
   }
 
   return (
-    <OpenTuiTabs
+    <TabStrip
       tabs={tabs}
       activeValue={activeValue}
       onSelect={handleSelect}
@@ -294,7 +294,7 @@ function tabWidth(
   return displayWidth(tab.label) + (dense ? 1 : 2) + (showClose ? 2 : 0);
 }
 
-function OpenTuiTabs({
+function TabStrip({
   tabs,
   activeValue,
   onSelect,

@@ -5,7 +5,7 @@ import type { AppConfig, LayoutConfig, PaneBinding, PaneInstanceConfig } from ".
 
 import type { CachePolicy, PersistedResourceValue } from "./persistence";
 import type { TickerRecord } from "./ticker";
-import type { BrokerContractRef, InstrumentSearchResult, TickerInstrumentKind, TickerListingRef } from "./instrument";
+import type { BrokerContractRef, InstrumentSearchResult, TickerListingRef } from "./instrument";
 
 /**
  * Named render slots. The host renders only `status:widget`; the other names
@@ -83,13 +83,6 @@ export interface PaneDef {
    * win over the binding.
    */
   tickerFollower?: boolean | ((pane: PaneInstanceConfig) => boolean);
-  /**
-   * Instrument kinds this pane has data for, such as `["equity"]` for company
-   * data, as a research tab declares them. Bound to a ticker of another known
-   * kind (an index, an ETF), the pane says so in place of its data, and `fn`
-   * and `shot` answer before loading. Omit when every ticker has it.
-   */
-  instruments?: readonly TickerInstrumentKind[];
   /**
    * For a pane type that two or more functions open (ERN and EVTS): the settings that say
    * what a window shows, as against how (a range, a toggle, a column choice). Opening a
@@ -704,9 +697,8 @@ export interface WorkstationPluginContext {
  * Where a plugin can actually run.
  *
  * `cli` and `tui` run in Bun and may use Node APIs. `desktop` runs in the
- * Electrobun view. `web` runs in the browser at term.power.sh, which rules out
- * Node builtins entirely — a plugin opening a TCP socket (IBKR Gateway) can
- * never be web-capable, no matter what it declares.
+ * Electrobun view. `web` runs in a browser, which cannot use Node builtins or open raw TCP
+ * sockets, regardless of a plugin's declared capabilities.
  *
  * Plugins may declare this, but the registry derives it from a static import
  * scan and overwrites the declaration. Treat an author-supplied value as a hint.

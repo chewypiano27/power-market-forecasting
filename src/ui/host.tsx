@@ -553,7 +553,7 @@ export interface HostMenuProps {
 }
 
 export interface UiHost {
-  kind?: "opentui" | "desktop-web";
+  kind?: "desktop-web";
   capabilities?: {
     nativePaneChrome?: boolean;
     titleBarOverlay?: boolean;

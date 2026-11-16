@@ -62,7 +62,6 @@ export function useCommandBarEnvironment() {
   }, []);
   const activeTickerSymbol = null;
   const activeTickerData = null;
-  const activeFinancials = null;
   const { width: termWidth, height: termHeight } = useViewport();
   const {
     nativePaneChrome: nativePaneChromeCapability,
@@ -92,7 +91,6 @@ export function useCommandBarEnvironment() {
 
   return {
     activeCollectionId,
-    activeFinancials,
     activeTickerData,
     activeTickerSymbol,
     availableCommands,
