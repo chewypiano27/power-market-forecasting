@@ -379,11 +379,12 @@ export function compositeAxisTickLabels(
   domain: CompositeAxisDomain | undefined,
   width: number,
   format?: CompositeAxisValueFormatter,
-): Array<{ ratio: number; label: string }> {
+): Array<{ value: number; ratio: number; label: string }> {
   if (!domain || width <= 0) return [];
   // Never pass a clipped number to the axis renderer: its later overflow
   // guard cannot distinguish that prefix from a complete formatted value.
-  return compositeAxisTicks(domain, format).map(({ ratio, label }) => ({
+  return compositeAxisTicks(domain, format).map(({ value, ratio, label }) => ({
+    value,
     ratio,
     label: displayWidth(label) > width ? "…" : label,
   }));

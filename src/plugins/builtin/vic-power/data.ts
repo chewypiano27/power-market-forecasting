@@ -691,23 +691,7 @@ export async function fetchVicPowerSnapshot(options: {
 } = {}): Promise<VicPowerSnapshot> {
   const transport = options.fetcher ?? httpFetch;
   const timeoutMs = options.requestTimeoutMs ?? 20_000;
-  const fetcher: HttpFetchTransport = async (url, init) => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      return await Promise.race([
-        transport(url, { ...init, signal: controller.signal }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            reject(new Error(`${new URL(url).hostname} did not respond within ${timeoutMs / 1000}s. Check your connection and refresh.`));
-            controller.abort();
-          }, timeoutMs);
-        }),
-      ]);
-    } finally {
-      clearTimeout(timer);
-    }
-  };
+  const fetcher = timedAemoFetcher(transport, timeoutMs);
   const [aemo, weather] = await Promise.all([
     fetchAemoLive(fetcher, options.now ?? new Date()),
     fetchWeatherCalendar(fetcher),
@@ -725,4 +709,34 @@ export async function fetchVicPowerSnapshot(options: {
     marketWarnings: aemo.warnings,
     weatherModel: weather.model,
   };
+}
+
+function timedAemoFetcher(transport: HttpFetchTransport, timeoutMs: number): HttpFetchTransport {
+  return async (url, init) => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        transport(url, { ...init, signal: controller.signal }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`${new URL(url).hostname} did not respond within ${timeoutMs / 1000}s. Check your connection and refresh.`));
+            controller.abort();
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
+/** Fetch current actual VIC1 dispatch prices and demand without waiting for weather data. */
+export async function fetchVicPowerMarketHistory(options: {
+  fetcher?: HttpFetchTransport;
+  now?: Date;
+  requestTimeoutMs?: number;
+} = {}): Promise<VicMarketPoint[]> {
+  const fetcher = timedAemoFetcher(options.fetcher ?? httpFetch, options.requestTimeoutMs ?? 20_000);
+  return (await fetchAemoLive(fetcher, options.now ?? new Date())).market;
 }

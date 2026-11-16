@@ -4,7 +4,7 @@ const PRESETS_VERSION = "workspace-presets-version";
 const PANE_IDS = ["vic-market-glance", "vic-demand-price", "vic-spot-arbitrage"] as const;
 const leaf = (paneId: string): DockLayoutNode => ({ kind: "pane", instanceId: `${paneId}:main` });
 
-/** The five saved layouts use the host's existing Cmd/Ctrl+digit navigation. */
+/** The six saved layouts use the host's existing Cmd/Ctrl+digit navigation. */
 export function createWorkstationLayouts(): SavedLayout[] {
   const single = (paneId: string): LayoutConfig => ({
     instances: [{ paneId, instanceId: `${paneId}:main`, binding: { kind: "none" } }],
@@ -26,12 +26,13 @@ export function createWorkstationLayouts(): SavedLayout[] {
     },
     paneState: {}, focusedPaneId: `${PANE_IDS[0]}:main`,
   });
+  layouts.push({ id: "vic1-workspace-5", name: "Buy/Sell", layout: single("vic-buy-sell"), paneState: {}, focusedPaneId: "vic-buy-sell:main" });
   return [{ id: "vic1-workspace-demo", name: "Demo", layout: { dockRoot: null, instances: [], floating: [], detached: [] }, paneState: {}, focusedPaneId: null }, ...layouts];
 }
 
 /** Keep the blank demo workspace first and preserve the four populated workspaces; retain earlier layouts in the plugin's local archive. */
 export function installWorkstationLayouts(config: AppConfig): AppConfig {
-  if (config.pluginConfig["vic-power"]?.[PRESETS_VERSION] === 3) return config;
+  if (config.pluginConfig["vic-power"]?.[PRESETS_VERSION] === 4) return config;
   const active = config.layouts[config.activeLayoutIndex];
   const presets = createWorkstationLayouts().map(preset => {
     const saved = config.layouts.find(layout => layout.id === preset.id);
@@ -49,9 +50,9 @@ export function installWorkstationLayouts(config: AppConfig): AppConfig {
     layout: cloneLayout(presets[activeLayoutIndex]!.layout),
     activeLayoutIndex,
     keybindings: { ...config.keybindings, actions: { ...config.keybindings?.actions,
-      "switch-layout": ["CmdOrCtrl+1", "CmdOrCtrl+2", "CmdOrCtrl+3", "CmdOrCtrl+4", "CmdOrCtrl+5"] } },
+      "switch-layout": ["CmdOrCtrl+1", "CmdOrCtrl+2", "CmdOrCtrl+3", "CmdOrCtrl+4", "CmdOrCtrl+5", "CmdOrCtrl+6"] } },
     pluginConfig: { ...config.pluginConfig,
-      "vic-power": { ...config.pluginConfig["vic-power"], [PRESETS_VERSION]: 3,
+      "vic-power": { ...config.pluginConfig["vic-power"], [PRESETS_VERSION]: 4,
         "archived-workspaces": [...(Array.isArray(existingArchive) ? existingArchive : []), ...previous] } },
   };
 }

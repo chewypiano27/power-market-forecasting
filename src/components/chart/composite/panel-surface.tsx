@@ -60,7 +60,7 @@ import {
 import { compositeRightOffsetRatio, unprojectCompositeTimestamp } from "./time-scale";
 import { resolveCompositeCursorDate, unprojectCompositeValue } from "./scene";
 import { compositeAxisTickLabels, renderCompositeAxisText, renderCompositePanelText } from "./text-renderer";
-import type { CompositeAxisSide, CompositeChartColors, CompositeChartScene, CompositePanelScene } from "./types";
+import type { CompositeAxisDomain, CompositeAxisSide, CompositeChartColors, CompositeChartScene, CompositePanelScene } from "./types";
 import { useCompositePanelBitmap } from "./panel-bitmap";
 import { nextDrawingId, nextLevelId } from "./drawing-store";
 import {
@@ -108,6 +108,7 @@ interface CompositePanelSurfaceProps {
   /** False keeps the hover cursor but removes pan, zoom, and the tools. */
   navigable: boolean;
   formatAxisValue?: CompositeAxisValueFormatter;
+  axisValueColor?: (value: number, domain: CompositeAxisDomain) => string;
   remoteKind?: string;
   viewport: CompositeViewportRange;
   frame: CompositeNavigationFrame;
@@ -186,6 +187,7 @@ export function CompositePanelSurface({
   interactive,
   navigable,
   formatAxisValue,
+  axisValueColor,
   remoteKind,
   viewport,
   frame,
@@ -462,6 +464,12 @@ export function CompositePanelSurface({
     () => compositeAxisTickLabels(panel.axes.right, rightAxisWidth, formatAxisValue),
     [formatAxisValue, panel, rightAxisWidth],
   );
+  const leftAxisValueByRow = useMemo(() => new Map(leftAxisTicks.map((tick) => [
+    Math.round(tick.ratio * Math.max(panel.height - 1, 0)), tick.value,
+  ])), [leftAxisTicks, panel.height]);
+  const rightAxisValueByRow = useMemo(() => new Map(rightAxisTicks.map((tick) => [
+    Math.round(tick.ratio * Math.max(panel.height - 1, 0)), tick.value,
+  ])), [panel.height, rightAxisTicks]);
   const cursorRow = activeCursorYRatio === null
     ? null
     : Math.round(activeCursorYRatio * Math.max(panel.height - 1, 0));
@@ -472,7 +480,20 @@ export function CompositePanelSurface({
   const axisCursorYRatio = isDesktopWeb ? pointerCursorYRatio : activeCursorYRatio;
   const leftCursorLabel = cursorAxisLabel(panel, "left", axisCursorYRatio, formatAxisValue);
   const rightCursorLabel = cursorAxisLabel(panel, "right", axisCursorYRatio, formatAxisValue);
-  const seriesAxisTags = useMemo(() => isDesktopWeb ? resolveSeriesAxisTags(panel, scene, formatAxisValue) : [], [formatAxisValue, isDesktopWeb, panel, scene]);
+  const cursorAxisColor = (side: CompositeAxisSide) => {
+    const domain = panel.axes[side];
+    if (!axisValueColor || axisCursorYRatio === null || !domain) return colors.crosshair;
+    const value = unprojectCompositeValue(axisCursorYRatio, domain);
+    return value === null ? colors.crosshair : axisValueColor(value, domain);
+  };
+  const seriesAxisTags = useMemo(() => isDesktopWeb
+    ? resolveSeriesAxisTags(panel, scene, formatAxisValue).map((tag) => {
+      const domain = panel.axes[tag.side];
+      return axisValueColor && domain
+        ? { ...tag, color: axisValueColor(tag.value, domain) }
+        : tag;
+    })
+    : [], [axisValueColor, formatAxisValue, isDesktopWeb, panel, scene]);
   const measureReadout = useMemo(() => {
     if (!activeDrag || !toolReadout?.summary) return null;
     const text = toolReadout.summary;
@@ -570,10 +591,25 @@ export function CompositePanelSurface({
     // with a row to themselves show. Desktop badges sit between rows.
     const grid = fractionalViewport
       ? placeAxisTicks({ ticks: side === "left" ? leftAxisTicks : rightAxisTicks, height: panel.height, cellHeightPx }).map((tick) => ({
-        ...toAxisMarker({ yRatio: tick.ratio, label: tick.label, color: colors.textDim }),
+        ...toAxisMarker({
+          yRatio: tick.ratio,
+          label: tick.label,
+          color: tick.value !== undefined && axisValueColor
+            ? axisValueColor(tick.value, panel.axes[side]!)
+            : colors.textDim,
+        }),
         pixelY: tick.topPercent / 100 * Math.max(panel.height * cellHeightPx - 1, 1),
       }))
-      : [...(side === "left" ? leftAxisLabels : rightAxisLabels)].map(([row, label]) => ({ id: undefined, row, pixelY: row * cellHeightPx, label, color: colors.textDim }));
+      : [...(side === "left" ? leftAxisTicks : rightAxisTicks)].map((tick) => {
+        const row = Math.round(tick.ratio * Math.max(panel.height - 1, 0));
+        return {
+          id: undefined,
+          row,
+          pixelY: row * cellHeightPx,
+          label: tick.label,
+          color: axisValueColor ? axisValueColor(tick.value, panel.axes[side]!) : colors.textDim,
+        };
+      });
     const rowOf = (marker: ReturnType<typeof toAxisMarker>) => fractionalViewport ? marker.pixelY / cellHeightPx : marker.row;
     // Named guides are part of the chart's readout: ordinary ticks yield to
     // them, while a live price or cursor still keeps its place.
@@ -1199,6 +1235,7 @@ export function CompositePanelSurface({
           <PriceAxisLabels
             axisLabels={leftAxisLabels}
             axisTicks={leftAxisTicks}
+            axisValueByRow={leftAxisValueByRow}
             axisWidth={leftAxisWidth}
             axisSectionWidth={leftAxisWidth}
             side="left"
@@ -1206,9 +1243,10 @@ export function CompositePanelSurface({
             cursorRow={cursorRow}
             cursorPixelY={cursorPixelY}
             cursorLabel={leftCursorLabel}
-            cursorColor={colors.crosshair}
+            cursorColor={cursorAxisColor("left")}
             cursorBackgroundColor={colors.background}
             axisColor={colors.textDim}
+            axisTickColor={axisValueColor ? (value) => axisValueColor(value, panel.axes.left!) : undefined}
             extraMarkers={leftAxisMarkers}
             seriesTags={isDesktopWeb ? seriesAxisTags.filter((tag) => tag.side === "left") : undefined}
             measuredPixelHeight={plotSize.height * cellHeightPx}
@@ -1272,6 +1310,7 @@ export function CompositePanelSurface({
           <PriceAxisLabels
             axisLabels={rightAxisLabels}
             axisTicks={rightAxisTicks}
+            axisValueByRow={rightAxisValueByRow}
             axisWidth={rightAxisWidth}
             axisSectionWidth={rightAxisWidth}
             side="right"
@@ -1279,9 +1318,10 @@ export function CompositePanelSurface({
             cursorRow={cursorRow}
             cursorPixelY={cursorPixelY}
             cursorLabel={rightCursorLabel}
-            cursorColor={colors.crosshair}
+            cursorColor={cursorAxisColor("right")}
             cursorBackgroundColor={colors.background}
             axisColor={colors.textDim}
+            axisTickColor={axisValueColor ? (value) => axisValueColor(value, panel.axes.right!) : undefined}
             extraMarkers={rightAxisMarkers}
             seriesTags={isDesktopWeb ? seriesAxisTags.filter((tag) => tag.side === "right") : undefined}
             measuredPixelHeight={plotSize.height * cellHeightPx}
