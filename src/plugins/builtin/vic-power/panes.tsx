@@ -33,7 +33,7 @@ import { createVicPowerDemoSnapshot, type PowerNewsItem, type RegionalMarketSnap
 import { NEM_TIME_ZONE, WEATHER_TIME_ZONE, weatherChartDate, chartDate, dispatchTime, marketComparisons, marketIsFresh, regionalDispatches, SPOT_REGIONS } from "./analytics";
 import { useAppDispatch, useAppStateRef, syncConfigActiveLayoutState } from "../../../state/app/context";
 import { installWorkstationLayouts } from "./workspaces";
-import { vicMarketPoints, type TraderDay, type VicMarketPoint, type Volatility } from "./model";
+import { type TraderDay, type VicMarketPoint, type Volatility } from "./model";
 
 import { bundledDemandModel, loadDemandProbability, nextDemandTarget } from "./demand-service";
 import { TemperatureStressPane } from "./temperature-stress-pane";
