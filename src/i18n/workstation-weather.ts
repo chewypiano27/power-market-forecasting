@@ -1,5 +1,15 @@
 /** Spanish and Simplified Chinese workstation copy. */
 export const workstationWeather: Record<string, readonly [string, string]> = {
+  "Temperature sensitivity": ["Sensibilidad a la temperatura", "温度敏感性"],
+  "Forecast temperature change": ["Cambio de temperatura prevista", "预报温度变化"],
+  "Forecast day": ["Día del pronóstico", "预测日期"],
+  "Baseline peak": ["Pico de referencia", "基准需求峰值"],
+  "Changes every forecast hour by the selected temperature amount. Other model inputs stay fixed.": ["Modifica todas las horas previstas con el cambio de temperatura seleccionado. Los demás datos del modelo se mantienen fijos.", "对每个预报小时应用所选温度变化，其他模型输入保持不变。"],
+  "Demand model inputs unavailable": ["Datos del modelo de demanda no disponibles", "需求模型输入不可用"],
+  "Temperature inputs timed out": ["Se agotó el tiempo de espera de los datos de temperatura", "温度数据请求超时"],
+  "Temperature sensitivity requires an issued, current demand forecast": ["La sensibilidad a la temperatura requiere un pronóstico de demanda vigente", "温度敏感性分析需要已发布且有效的需求预测"],
+  "Temperature change must be between -8 and +8 degrees": ["El cambio de temperatura debe estar entre -8 y +8 grados", "温度变化必须介于 -8 至 +8 度之间"],
+  "Temperature scenario produced an invalid peak": ["El escenario de temperatura produjo un pico no válido", "温度情景产生了无效需求峰值"],
   "LOW": ["BAJO", "低"],
   "AMBER": ["MEDIO", "中"],
   "HIGH": ["ALTO", "高"],
