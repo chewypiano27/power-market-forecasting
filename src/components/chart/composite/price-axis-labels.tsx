@@ -24,7 +24,7 @@ interface PriceAxisMarker {
 interface PriceAxisLabelsProps {
   axisLabels: ReadonlyMap<number, string>;
   /** Tick labels at their exact heights, where the host can place text between rows. */
-  axisTicks?: readonly { ratio: number; label: string }[];
+  axisTicks?: readonly { value?: number; ratio: number; label: string }[];
   axisWidth: number;
   axisSectionWidth: number;
   side?: "left" | "right";
@@ -35,6 +35,7 @@ interface PriceAxisLabelsProps {
   cursorColor: string;
   cursorBackgroundColor?: string;
   axisColor?: string;
+  axisTickColor?: (value: number) => string;
   /** Anchors that stay put while the cursor moves, such as a measure start. */
   extraMarkers?: readonly PriceAxisMarker[];
   /** Desktop/web observations, separate from a drawing tool's endpoint. */
@@ -92,6 +93,7 @@ export function buildCursorPriceAxisOverlay({
 }
 
 interface PlacedAxisTick {
+  value?: number;
   label: string;
   ratio: number;
   topPercent: number;
@@ -109,7 +111,7 @@ export function placeAxisTicks({
   cellHeightPx,
   badgeCentersPx = [],
 }: {
-  ticks: readonly { ratio: number; label: string }[];
+  ticks: readonly { value?: number; ratio: number; label: string }[];
   height: number;
   cellHeightPx: number;
   badgeCentersPx?: readonly number[];
@@ -118,6 +120,7 @@ export function placeAxisTicks({
   const halfLabel = Math.min(cellHeightPx / 2, (pixelHeight - 1) / 2);
   const placed = ticks
     .map((tick) => ({
+      value: tick.value,
       label: tick.label,
       ratio: tick.ratio,
       topPx: clamp(tick.ratio * (pixelHeight - 1), halfLabel, Math.max(pixelHeight - halfLabel, halfLabel)),
@@ -154,6 +157,7 @@ export function PriceAxisLabels({
   cursorColor,
   cursorBackgroundColor = colors.bg,
   axisColor = colors.textDim,
+  axisTickColor,
   extraMarkers,
   seriesTags,
   measuredPixelHeight,
@@ -263,7 +267,7 @@ export function PriceAxisLabels({
             }}
           >
             <Box flexDirection="row" width={axisWidth} justifyContent={axisLabelJustify} overflow="hidden">
-              <Text fg={axisColor} selectable={false}>{tick.label}</Text>
+              <Text fg={tick.value === undefined ? axisColor : axisTickColor?.(tick.value) ?? axisColor} selectable={false}>{tick.label}</Text>
             </Box>
             {axisPaddingWidth > 0 ? <Box width={axisPaddingWidth} /> : null}
           </Box>

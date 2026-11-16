@@ -60,7 +60,7 @@ import {
 import { compositeRightOffsetRatio, unprojectCompositeTimestamp } from "./time-scale";
 import { resolveCompositeCursorDate, unprojectCompositeValue } from "./scene";
 import { compositeAxisTickLabels, renderCompositeAxisText, renderCompositePanelText } from "./text-renderer";
-import type { CompositeAxisSide, CompositeChartColors, CompositeChartScene, CompositePanelScene } from "./types";
+import type { CompositeAxisDomain, CompositeAxisSide, CompositeChartColors, CompositeChartScene, CompositePanelScene } from "./types";
 import { useCompositePanelBitmap } from "./panel-bitmap";
 import { nextDrawingId, nextLevelId } from "./drawing-store";
 import {
@@ -108,6 +108,7 @@ interface CompositePanelSurfaceProps {
   /** False keeps the hover cursor but removes pan, zoom, and the tools. */
   navigable: boolean;
   formatAxisValue?: CompositeAxisValueFormatter;
+  axisValueColor?: (value: number, domain: CompositeAxisDomain) => string;
   remoteKind?: string;
   viewport: CompositeViewportRange;
   frame: CompositeNavigationFrame;
@@ -186,6 +187,7 @@ export function CompositePanelSurface({
   interactive,
   navigable,
   formatAxisValue,
+  axisValueColor,
   remoteKind,
   viewport,
   frame,
@@ -1209,6 +1211,7 @@ export function CompositePanelSurface({
             cursorColor={colors.crosshair}
             cursorBackgroundColor={colors.background}
             axisColor={colors.textDim}
+            axisTickColor={axisValueColor ? (value) => axisValueColor(value, panel.axes.left!) : undefined}
             extraMarkers={leftAxisMarkers}
             seriesTags={isDesktopWeb ? seriesAxisTags.filter((tag) => tag.side === "left") : undefined}
             measuredPixelHeight={plotSize.height * cellHeightPx}
@@ -1282,6 +1285,7 @@ export function CompositePanelSurface({
             cursorColor={colors.crosshair}
             cursorBackgroundColor={colors.background}
             axisColor={colors.textDim}
+            axisTickColor={axisValueColor ? (value) => axisValueColor(value, panel.axes.right!) : undefined}
             extraMarkers={rightAxisMarkers}
             seriesTags={isDesktopWeb ? seriesAxisTags.filter((tag) => tag.side === "right") : undefined}
             measuredPixelHeight={plotSize.height * cellHeightPx}

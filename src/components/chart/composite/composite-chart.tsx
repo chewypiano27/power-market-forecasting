@@ -168,6 +168,7 @@ function ThemedCompositeChart({
   interactive = true,
   navigable = true,
   formatAxisValue,
+  axisValueColor,
   xAxis,
   remoteKind,
   allowHistoricalBackfill = false,
@@ -1118,6 +1119,7 @@ function ThemedCompositeChart({
           interactive={interactive}
           navigable={navigable}
           formatAxisValue={formatAxisValue}
+          axisValueColor={axisValueColor}
           remoteKind={remoteKind}
           viewport={effectiveViewport!}
           frame={navigationFrame!}

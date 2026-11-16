@@ -20,6 +20,19 @@ function previousMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1));
 }
 
+function formatMarketTime(time: string | null | undefined): string {
+  if (!time) return "—";
+  const instant = new Date(`${time}+10:00`);
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: NEM_TIME_ZONE,
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(instant);
+}
+
 function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellHourlyPrice[] {
   const groups = new Map<string, { demand: number; price: number; count: number }>();
   for (const row of rows) {
@@ -43,17 +56,25 @@ function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellH
 
 function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
   const from = "2026-11-01T00:00:00";
-  const through = "2026-11-16T00:00:00";
+  const followOnHistory = history.filter((row) => row.time >= from);
+  const lastAvailable = followOnHistory.at(-1)?.time.slice(0, 10);
   const days = new Map<string, { calls: number; correct: number }>();
-  for (let day = 1; day <= 15; day += 1) days.set(`2026-11-${String(day).padStart(2, "0")}`, { calls: 0, correct: 0 });
+  const cursor = new Date("2026-11-01T00:00:00Z");
+  while (lastAvailable && cursor.toISOString().slice(0, 10) <= lastAvailable) {
+    days.set(cursor.toISOString().slice(0, 10), { calls: 0, correct: 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  let hours = 0;
   for (let index = 168; index < history.length; index += 1) {
     const actual = history[index]!;
-    if (actual.time < from || actual.time >= through) continue;
+    if (actual.time < from) continue;
     const day = days.get(actual.time.slice(0, 10));
     if (!day) continue;
     const prior = history.slice(index - 168, index);
     const decision = decideBuySell(prior, actual.time, victorianCalendarAnnotation(actual.time.slice(0, 10)));
-    if (decision.status === "ready" && decision.action !== "HOLD") {
+    if (decision.status !== "ready") continue;
+    hours += 1;
+    if (decision.action !== "HOLD") {
       const move = actual.price - prior.at(-1)!.price;
       const side = decision.action === "BUY" ? 1 : -1;
       day.calls += 1;
@@ -64,7 +85,8 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
     hitRateDelta: value.calls ? value.correct / value.calls * 100 - 50 : null }));
   const calls = series.reduce((sum, day) => sum + day.calls, 0);
   const correct = series.reduce((sum, day) => sum + day.correct, 0);
-  return { series, calls, correct, hitRate: calls ? correct / calls : 0 };
+  return { series, calls, correct, hours, hitRate: calls ? correct / calls : 0,
+    through: followOnHistory.at(-1)?.time ?? null };
 }
 
 async function loadDecision() {
@@ -106,6 +128,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
     { label: "Price estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
   ] : [];
   const evaluation = resource.data?.evaluation;
+  const dataThrough = resource.data?.recent.at(-1)?.time ?? null;
   const actualSeries = useMemo(() => staticSeries((resource.data?.recent ?? []).map((row) => scalarPoint(chartDate(row.time), row.price)), {
     id: "vic1-hourly-rrp", label: "VIC1 hourly price", color: colors.warning, calendarSpaced: true,
   }), [colors.warning, resource.data?.recent]);
@@ -128,17 +151,22 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
       { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
-      { label: "Coverage", value: `${evaluation?.calls ?? 0}/360 · ${((evaluation?.calls ?? 0) / 360 * 100).toFixed(0)}%` },
+      { label: "Coverage", value: `${evaluation?.calls ?? 0}/${evaluation?.hours ?? 0} · ${((evaluation?.calls ?? 0) / Math.max(1, evaluation?.hours ?? 0) * 100).toFixed(0)}%` },
     ];
     const evaluationChartHeight = Math.max(8, height - tabRows - statGridRows(evaluationStats, width) - 3);
     return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
       {tabStrip}<StatGrid items={evaluationStats} width={width} />
       <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate vs 50% · pp" }]} width={width}
         height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
-        levels={{ seriesId: "daily-hit-rate", items: [{ id: "coin-flip", value: 0, color: colors.textDim, label: "50% hit rate", dashed: true, editable: false, actionable: false }] }}
+        levels={{ seriesId: "daily-hit-rate", items: [
+          { id: "negative-tick", value: -10, color: colors.negative, label: "−10pp", dashed: true, editable: false, actionable: false },
+          { id: "coin-flip", value: 0, color: colors.textDim, label: "50% hit rate", dashed: true, editable: false, actionable: false },
+        ] }}
+        axisValueColor={(value) => value < 0 ? colors.negative : value > 0 ? colors.positive : colors.textDim}
+        formatAxisValue={(value) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp`}
         formatValue={(value) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp`} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
-        <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026")}</Text>
+        <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · evaluation through {date}").replace("{date}", evaluation?.through?.slice(0, 10) ?? "—")}</Text>
         <Text fg={colors.textDim}>{t("Each bar shows the day's directional hit rate relative to 50%; green is above, red below.")}</Text>
       </Box>
     </Box>;
@@ -155,6 +183,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
       formatValue={(value) => `$${value.toFixed(2)}`} />
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Box flexDirection="row" style={{ gap: "var(--power-space-sm)" }}><Badge label={decision.action} tone={decision.action === "BUY" ? "positive" : decision.action === "SELL" ? "negative" : "neutral"} variant="solid" /><Text fg={colors.text} wrapText>{reason}</Text></Box>
+      <Text fg={colors.text}>{t("Latest complete VIC1 hour: {time} AEST. Signal hour: {target} AEST.").replace("{time}", formatMarketTime(dataThrough)).replace("{target}", formatMarketTime(decision.targetHour))}</Text>
       <Text fg={colors.textDim}>{t("Ridge uses recent VIC price and demand, plus hour, weekday and holiday inputs.")}</Text>
     </Box>
   </Box>;
