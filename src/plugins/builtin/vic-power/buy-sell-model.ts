@@ -38,34 +38,39 @@ export interface BuySellDecision {
   targetHour: string;
 }
 
+function hourAt(targetHour: string, offset: number): string {
+  const date = new Date(Date.parse(`${targetHour}Z`) + offset * 3_600_000);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}:00:00`;
+}
+
 /** Predict the next hourly spot-price change from a fixed, fit-through-October Ridge model. */
 export function decideBuySell(history: readonly BuySellHourlyPrice[], targetHour: string, holiday: {
   isPublicHoliday: boolean; isSchoolHoliday: boolean;
 }): BuySellDecision | { status: "unavailable"; reason: string } {
   const model = BUY_SELL_MODEL;
-  if (history.length < 168 || history.some((row, index) => index > 0
-    && Date.parse(`${row.time}+10:00`) - Date.parse(`${history[index - 1]!.time}+10:00`) !== 3_600_000)) {
-    return { status: "unavailable", reason: "Eight complete days of hourly VIC price and demand history are required." };
+  const byTime = new Map(history.map((row) => [row.time, row]));
+  const entry = byTime.get(hourAt(targetHour, -1));
+  const lag24 = byTime.get(hourAt(targetHour, -24));
+  const lag168 = byTime.get(hourAt(targetHour, -168));
+  const priorDay = Array.from({ length: 24 }, (_, index) => byTime.get(hourAt(targetHour, -48 + index)));
+  if (!entry || !lag24 || !lag168 || priorDay.some((row) => !row)) {
+    return { status: "unavailable", reason: "AEMO history is missing one or more required hourly model inputs." };
   }
   // This string represents NEM wall-clock time, so read it as a UTC-shaped
   // calendar value to preserve its local hour and weekday across UTC offsets.
   const date = new Date(`${targetHour}Z`);
   const hour = date.getUTCHours();
   const weekday = date.getUTCDay();
-  const priorDay = history.slice(-48, -24);
-  if (priorDay.length !== 24) return { status: "unavailable", reason: "Prior-day hourly observations are incomplete." };
-  const lag24 = history.at(-24)!;
-  const lag168 = history.at(-168)!;
   const features = [Math.sin(2 * Math.PI * hour / 24), Math.cos(2 * Math.PI * hour / 24),
     Math.sin(2 * Math.PI * weekday / 7), Math.cos(2 * Math.PI * weekday / 7), Number(holiday.isPublicHoliday),
     Number(holiday.isSchoolHoliday), lag24.demand, lag168.demand,
-    priorDay.reduce((sum, row) => sum + row.demand, 0) / 24,
+    priorDay.reduce((sum, row) => sum + row!.demand, 0) / 24,
     Math.asinh(lag24.price / 100), Math.asinh(lag168.price / 100),
-    priorDay.reduce((sum, row) => sum + Math.asinh(row.price / 100), 0) / 24];
+    priorDay.reduce((sum, row) => sum + Math.asinh(row!.price / 100), 0) / 24];
   const delta = model.intercept + features.reduce((sum, value, index) => (
     sum + model.weights[index]! * (value - model.means[index]!) / model.scales[index]!
   ), 0);
-  const entryMwHPrice = history.at(-1)!.price;
+  const entryMwHPrice = entry.price;
   const forecastPrice = 100 * Math.sinh(Math.asinh(entryMwHPrice / 100) + delta);
   if (!Number.isFinite(forecastPrice)) return { status: "unavailable", reason: "Price estimate is invalid." };
   const expectedMove = forecastPrice - entryMwHPrice;

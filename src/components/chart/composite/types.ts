@@ -286,6 +286,8 @@ export interface CompositeChartProps {
   formatAxisValue?: (value: number, domain: CompositeAxisDomain) => string;
   /** Colors axis tick values independently, e.g. positive and negative results. */
   axisValueColor?: (value: number, domain: CompositeAxisDomain) => string;
+  /** Includes reference values in the fitted axis range without drawing guides. */
+  referenceLevels?: CompositeChartLevels | null;
   xAxis?: CompositeChartXAxis;
   /** Tagged onto the plot's semantic node so remote clients can find this chart. */
   remoteKind?: string;

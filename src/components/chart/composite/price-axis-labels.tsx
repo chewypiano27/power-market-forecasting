@@ -25,6 +25,7 @@ interface PriceAxisLabelsProps {
   axisLabels: ReadonlyMap<number, string>;
   /** Tick labels at their exact heights, where the host can place text between rows. */
   axisTicks?: readonly { value?: number; ratio: number; label: string }[];
+  axisValueByRow?: ReadonlyMap<number, number>;
   axisWidth: number;
   axisSectionWidth: number;
   side?: "left" | "right";
@@ -147,6 +148,7 @@ export function placeAxisTicks({
 export function PriceAxisLabels({
   axisLabels,
   axisTicks,
+  axisValueByRow,
   axisWidth,
   axisSectionWidth,
   side,
@@ -246,7 +248,9 @@ export function PriceAxisLabels({
           <Box key={row} height={1}>
             {renderAxisLabel(
               label,
-              isCursorRow ? cursorColor : marker ? marker.color : axisColor,
+              isCursorRow ? cursorColor : marker ? marker.color
+                : axisValueByRow?.has(row) ? axisTickColor?.(axisValueByRow.get(row)!) ?? axisColor
+                  : axisColor,
             )}
           </Box>
         );

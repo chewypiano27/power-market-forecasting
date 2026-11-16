@@ -464,6 +464,12 @@ export function CompositePanelSurface({
     () => compositeAxisTickLabels(panel.axes.right, rightAxisWidth, formatAxisValue),
     [formatAxisValue, panel, rightAxisWidth],
   );
+  const leftAxisValueByRow = useMemo(() => new Map(leftAxisTicks.map((tick) => [
+    Math.round(tick.ratio * Math.max(panel.height - 1, 0)), tick.value,
+  ])), [leftAxisTicks, panel.height]);
+  const rightAxisValueByRow = useMemo(() => new Map(rightAxisTicks.map((tick) => [
+    Math.round(tick.ratio * Math.max(panel.height - 1, 0)), tick.value,
+  ])), [panel.height, rightAxisTicks]);
   const cursorRow = activeCursorYRatio === null
     ? null
     : Math.round(activeCursorYRatio * Math.max(panel.height - 1, 0));
@@ -1201,6 +1207,7 @@ export function CompositePanelSurface({
           <PriceAxisLabels
             axisLabels={leftAxisLabels}
             axisTicks={leftAxisTicks}
+            axisValueByRow={leftAxisValueByRow}
             axisWidth={leftAxisWidth}
             axisSectionWidth={leftAxisWidth}
             side="left"
@@ -1275,6 +1282,7 @@ export function CompositePanelSurface({
           <PriceAxisLabels
             axisLabels={rightAxisLabels}
             axisTicks={rightAxisTicks}
+            axisValueByRow={rightAxisValueByRow}
             axisWidth={rightAxisWidth}
             axisSectionWidth={rightAxisWidth}
             side="right"

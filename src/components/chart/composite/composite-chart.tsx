@@ -169,6 +169,7 @@ function ThemedCompositeChart({
   navigable = true,
   formatAxisValue,
   axisValueColor,
+  referenceLevels,
   xAxis,
   remoteKind,
   allowHistoricalBackfill = false,
@@ -354,7 +355,7 @@ function ThemedCompositeChart({
       timeZone,
       rightOffsetRatio,
       valueScales,
-      referenceLevels: rangeStatisticsLevels,
+      referenceLevels: referenceLevels ?? rangeStatisticsLevels,
     });
   }, [
     clipToViewport,
@@ -365,6 +366,7 @@ function ThemedCompositeChart({
     panelCount,
     panelSeries,
     panels,
+    referenceLevels,
     rightOffsetRatio,
     rangeStatisticsLevels,
     valueScales,
