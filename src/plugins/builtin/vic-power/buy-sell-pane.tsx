@@ -44,8 +44,8 @@ function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellH
 function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
   const from = "2026-11-01T00:00:00";
   const through = "2026-11-16T00:00:00";
-  const days = new Map<string, { calls: number; correct: number; returnPct: number; returnCount: number }>();
-  for (let day = 1; day <= 15; day += 1) days.set(`2026-11-${String(day).padStart(2, "0")}`, { calls: 0, correct: 0, returnPct: 0, returnCount: 0 });
+  const days = new Map<string, { calls: number; correct: number }>();
+  for (let day = 1; day <= 15; day += 1) days.set(`2026-11-${String(day).padStart(2, "0")}`, { calls: 0, correct: 0 });
   for (let index = 168; index < history.length; index += 1) {
     const actual = history[index]!;
     if (actual.time < from || actual.time >= through) continue;
@@ -58,21 +58,14 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
       const side = decision.action === "BUY" ? 1 : -1;
       day.calls += 1;
       if ((side === 1 && move > 0) || (side === -1 && move < 0)) day.correct += 1;
-      const entry = prior.at(-1)!.price;
-      if (Math.abs(entry) > 0.01) {
-        day.returnPct += side * move / Math.abs(entry) * 100;
-        day.returnCount += 1;
-      }
     }
   }
   const series = [...days].map(([date, value]) => ({ time: `${date}T12:00:00`, ...value,
-    hitRate: value.calls ? value.correct / value.calls * 100 : null,
-    meanReturnPct: value.returnCount ? value.returnPct / value.returnCount : null }));
+    hitRateDelta: value.calls ? value.correct / value.calls * 100 - 50 : null,
+    coverage: value.calls / 24 * 100 }));
   const calls = series.reduce((sum, day) => sum + day.calls, 0);
   const correct = series.reduce((sum, day) => sum + day.correct, 0);
-  const returnCount = series.reduce((sum, day) => sum + day.returnCount, 0);
-  const meanReturnPct = returnCount ? series.reduce((sum, day) => sum + day.returnPct, 0) / returnCount : 0;
-  return { series, calls, correct, hitRate: calls ? correct / calls : 0, meanReturnPct, returnCount };
+  return { series, calls, correct, hitRate: calls ? correct / calls : 0, coverage: calls / 360 };
 }
 
 async function loadDecision() {
@@ -123,15 +116,15 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
       id: "vic1-price-estimate", label: "One-hour estimate", color: actionColor, style: "points", calendarSpaced: true,
     }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
   ];
-  const dailyHitRate = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.hitRate)), {
-    id: "daily-hit-rate", label: "Direction correct", color: colors.borderFocused, calendarSpaced: true,
-  }), [colors.borderFocused, evaluation?.series]);
-  const dailyPnl = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.meanReturnPct)), {
-    id: "daily-return", label: "Mean return", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
+  const dailyHitRate = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.hitRateDelta)), {
+    id: "daily-hit-rate", label: "Hit rate vs 50%", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
   }), [colors.negative, colors.positive, evaluation?.series]);
+  const dailyCoverage = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.coverage)), {
+    id: "daily-coverage", label: "Call coverage", color: colors.warning, style: "columns", calendarSpaced: true,
+  }), [colors.warning, evaluation?.series]);
   const evaluationSeries = [
-    { ...dailyHitRate, panelId: "hit-rate", unit: "%", unitGroup: "percentage" },
-    { ...dailyPnl, panelId: "daily-return", unit: "%", unitGroup: "percentage" },
+    { ...dailyHitRate, panelId: "hit-rate", unit: "pp", unitGroup: "percentage" },
+    { ...dailyCoverage, panelId: "coverage", unit: "%", unitGroup: "percentage" },
   ];
   const chartHeight = Math.max(8, height - tabRows - statGridRows(liveStats, width) - 4);
   if (!decision) return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
@@ -142,19 +135,18 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
       { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
-      { label: "Mean return", value: `${(evaluation?.meanReturnPct ?? 0) >= 0 ? "+" : ""}${(evaluation?.meanReturnPct ?? 0).toFixed(2)}%`, tone: (evaluation?.meanReturnPct ?? 0) >= 0 ? "positive" : "negative" },
       { label: "Calls", value: `${evaluation?.calls ?? 0}/360 · ${((evaluation?.calls ?? 0) / 360 * 100).toFixed(0)}%` },
     ];
     const evaluationChartHeight = Math.max(8, height - tabRows - statGridRows(evaluationStats, width) - 3);
     return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
       {tabStrip}<StatGrid items={evaluationStats} width={width} />
-      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate · %", height: 1 }, { id: "daily-return", label: "Mean call return · %", height: 1 }]} width={width}
+      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Hit rate vs 50% · pp", height: 1 }, { id: "coverage", label: "Call coverage · %", height: 1 }]} width={width}
         height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
-        levels={{ seriesId: "daily-return", items: [{ id: "break-even", value: 0, color: colors.textDim, label: "0%", dashed: true, editable: false, actionable: false }] }}
-        formatValue={(value) => `${value.toFixed(1)}%`} />
+        levels={{ seriesId: "daily-hit-rate", items: [{ id: "coin-flip", value: 0, color: colors.textDim, label: "50% hit rate", dashed: true, editable: false, actionable: false }] }}
+        formatValue={(value, series) => series.panelId === "hit-rate" ? `${value >= 0 ? "+" : ""}${value.toFixed(0)}pp` : `${value.toFixed(0)}%`} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · follow-on period Nov 1–15, 2026")}</Text>
-        <Text fg={colors.textDim}>{t("Mean return is the signed price change as a percentage of absolute entry price; hit rate includes all calls.")}</Text>
+        <Text fg={colors.textDim}>{t("Hit-rate bars show daily accuracy relative to 50%; coverage is calls divided by 24 hours.")}</Text>
       </Box>
     </Box>;
   }
