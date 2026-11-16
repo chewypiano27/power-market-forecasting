@@ -2,7 +2,7 @@ import { FormModalHost } from "../../form-modal/host";
 import { Box, useContextMenu, useUiHost, type BoxRenderable } from "../../../ui";
 import { withPluginContextMenuItems } from "../../../ui/context-menu";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNativeRenderer, useRendererHost, useUiCapabilities } from "../../../ui";
+import { useNativeRenderer, useUiCapabilities } from "../../../ui";
 import { useShortcut, useViewport } from "../../../react/input";
 import { useDialogState } from "../../../ui/dialog";
 import { scheduleConfigSave } from "../../../state/config-save-scheduler";
@@ -101,7 +101,6 @@ export function Shell({
   const commandBarOpen = useAppSelector((state) => state.commandBarOpen);
   const stateRef = useAppStateRef();
   const inputCaptured = useAppSelector((state) => state.inputCaptured);
-  const rendererHost = useRendererHost();
   const nativeRenderer = useNativeRenderer();
   const { setTransientLayout } = useTransientLayout();
   const uiKind = useUiHost().kind;
@@ -284,8 +283,6 @@ export function Shell({
     canExportPaneCsv,
     closeAllFloatingPanes,
     closeFocusedPane,
-    copyFocusedPaneScreenshot,
-    copyPaneScreenshot,
     exportFocusedPaneCsv,
     exportPaneCsv,
     gridlockVisiblePanes,
@@ -300,12 +297,10 @@ export function Shell({
     desktopWindowBridge,
     focusedPaneId,
     focusPane,
-    nativePaneChrome,
     paneMap,
     persistLayout,
     previousFocusedPaneId,
     pluginRegistry,
-    rendererHost,
     visibleLayout,
     width,
   });
@@ -528,7 +523,6 @@ export function Shell({
     cancelActiveDrag,
     closeAllFloatingPanes,
     closeFocusedPane,
-    copyFocusedPaneScreenshot,
     exportFocusedPaneCsv,
     focusedPaneId,
     gridlockVisiblePanes,
@@ -577,7 +571,6 @@ export function Shell({
       focusPane,
       openPaneSettings,
       desktopWindowBridge,
-      nativePaneChrome && rendererHost.copyPngImage ? copyPaneScreenshot : undefined,
       undefined,
       canExportPaneCsv(paneId) ? exportPaneCsv : undefined,
       paneAccelerators,
@@ -636,7 +629,7 @@ export function Shell({
     void showContextMenu(context, items, event).then((shown) => {
       if (!shown) showKitMenu();
     });
-  }, [canExportPaneCsv, closePaneMenu, contentHeight, copyPaneScreenshot, desktopWindowBridge, exportPaneCsv, focusPane, getPaneTitle, handlePaneQuickSetting, nativePaneChrome, nativeRenderer, togglePaneFullscreen, openPaneSettings, paneAccelerators, paneLayoutMoveMenu, paneMap, persistLayout, pluginRegistry, rendererHost.copyPngImage, shortcutDisplayMode, showContextMenu, titleState, visibleLayout, width]);
+  }, [canExportPaneCsv, closePaneMenu, contentHeight, desktopWindowBridge, exportPaneCsv, focusPane, getPaneTitle, handlePaneQuickSetting, nativePaneChrome, nativeRenderer, togglePaneFullscreen, openPaneSettings, paneAccelerators, paneLayoutMoveMenu, paneMap, persistLayout, pluginRegistry, shortcutDisplayMode, showContextMenu, titleState, visibleLayout, width]);
   openPaneMenuRef.current = openPaneMenu;
 
   // The open pane menu owns the keyboard, ahead of any pane however late it

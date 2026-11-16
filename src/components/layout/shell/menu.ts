@@ -97,7 +97,6 @@ export function menuForPane(
   focusPane: (paneId: string) => void,
   openPaneSettings: (paneId: string) => void,
   desktopWindowBridge?: DesktopWindowBridge,
-  copyPaneScreenshot?: (paneId: string) => void | Promise<void>,
   linkItems: ContextMenuItem[] = [],
   exportPaneCsv?: (paneId: string) => void | Promise<void>,
   accelerators: PaneManagementAccelerators = PANE_MANAGEMENT_ACCELERATORS,
@@ -126,14 +125,6 @@ export function menuForPane(
       label: "Settings",
       accelerator: accelerators.settings,
       onSelect: () => openPaneSettings(pane.instance.instanceId),
-    });
-  }
-  if (copyPaneScreenshot) {
-    baseActions.push({
-      id: "copy-screenshot",
-      label: "Copy Screenshot",
-      accelerator: accelerators.copyScreenshot,
-      onSelect: () => copyPaneScreenshot(pane.instance.instanceId),
     });
   }
   if (exportPaneCsv) {

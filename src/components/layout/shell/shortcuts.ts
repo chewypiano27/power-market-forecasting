@@ -18,7 +18,6 @@ export type PaneManagementShortcut =
   | "new-layout"
   | "toggle-floating"
   | "pop-out"
-  | "copy-screenshot"
   | "export-csv"
   | "share"
   | "ask"
@@ -36,7 +35,6 @@ const PANE_ACTION_TO_SHORTCUT: Partial<Record<CoreKeybindingActionId, PaneManage
   "pane-new-layout": "new-layout",
   "pane-float": "toggle-floating",
   "pane-pop-out": "pop-out",
-  "pane-screenshot": "copy-screenshot",
   "pane-export-csv": "export-csv",
   "pane-share": "share",
   "pane-ask": "ask",
@@ -49,7 +47,7 @@ const PANE_ACTION_TO_SHORTCUT: Partial<Record<CoreKeybindingActionId, PaneManage
 };
 
 export type PaneManagementAccelerators = Record<
-  "menu" | "settings" | "fullscreen" | "newLayout" | "toggleFloating" | "popOut" | "copyScreenshot" | "exportCsv" | "share" | "ask" | "close"
+  "menu" | "settings" | "fullscreen" | "newLayout" | "toggleFloating" | "popOut" | "exportCsv" | "share" | "ask" | "close"
   | "closeAllFloating" | "layoutGallery" | "gridlockAll" | "windowMode" | "windowResizeMode",
   string | undefined
 >;
@@ -72,7 +70,6 @@ export function paneManagementAccelerators(
     newLayout: menuAcceleratorFor(keybindings, "pane-new-layout"),
     toggleFloating: menuAcceleratorFor(keybindings, "pane-float"),
     popOut: menuAcceleratorFor(keybindings, "pane-pop-out"),
-    copyScreenshot: menuAcceleratorFor(keybindings, "pane-screenshot"),
     exportCsv: menuAcceleratorFor(keybindings, "pane-export-csv"),
     share: menuAcceleratorFor(keybindings, "pane-share"),
     ask: terminalAsk ? serializeKeyChord(terminalAsk) : menuAcceleratorFor(keybindings, "pane-ask"),
@@ -113,9 +110,6 @@ export function inputCaptureAllowsPaneManagementShortcut(
   shortcut: PaneManagementShortcut,
   event: Pick<KeyEventLike, "ctrl" | "meta" | "super" | "targetEditable">,
 ): boolean {
-  // A screenshot does not edit the field that captured input. Keep it available
-  // from composers (ASKG, chat, etc.) on both desktop modifier layouts.
-  if (shortcut === "copy-screenshot") return event.ctrl || event.meta || event.super === true;
   // Command chords are never text. Alt+A and Ctrl+Shift+A edit a terminal
   // field (line start), so a field that has the keyboard keeps them there.
   if (shortcut === "toggle-fullscreen" || shortcut === "new-layout" || shortcut === "ask") return event.meta || event.super === true;

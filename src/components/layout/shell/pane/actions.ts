@@ -12,8 +12,6 @@ import {
 import type { PluginRegistry } from "../../../../plugins/registry";
 import type { LayoutConfig } from "../../../../types/config";
 import { isPaneLockedInLayout } from "../../../../pane-settings";
-import type { RendererHost } from "../../../../ui";
-import { capturePaneScreenshotPngBase64 } from "../../../../utils/dom-screenshot";
 import { fireAndForget } from "../../../../utils/fire-and-forget";
 import { createOneShots } from "../../../../utils/one-shot";
 import {
@@ -40,12 +38,10 @@ interface UseShellPaneActionsOptions {
   desktopWindowBridge?: DesktopWindowBridge;
   focusedPaneId: string | null;
   focusPane: (paneId: string) => void;
-  nativePaneChrome: boolean;
   paneMap: Map<string, ResolvedPane>;
   persistLayout: (nextLayout: LayoutConfig, options?: { pushHistory?: boolean; focusedPaneId?: string | null }) => void;
   previousFocusedPaneId: string | null;
   pluginRegistry: PluginRegistry;
-  rendererHost: RendererHost;
   visibleLayout: LayoutConfig;
   width: number;
 }
@@ -56,12 +52,10 @@ export function useShellPaneActions({
   desktopWindowBridge,
   focusedPaneId,
   focusPane,
-  nativePaneChrome,
   paneMap,
   persistLayout,
   previousFocusedPaneId,
   pluginRegistry,
-  rendererHost,
   visibleLayout,
   width,
 }: UseShellPaneActionsOptions) {
@@ -73,27 +67,6 @@ export function useShellPaneActions({
     pluginRegistry.openPaneSettings(paneId);
     closePaneMenu();
   }, [closePaneMenu, pluginRegistry]);
-
-  const copyPaneScreenshot = useCallback(async (paneId: string) => {
-    closePaneMenu();
-    const shot = shots.get("copy-screenshot");
-    if (shot.refuses()) return;
-    shot.start();
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      if (!rendererHost.copyPngImage) {
-        throw new Error("Image clipboard is unavailable.");
-      }
-      const screenshot = await capturePaneScreenshotPngBase64(paneId);
-      await rendererHost.copyPngImage(screenshot.pngBase64);
-      pluginRegistry.notify({ body: "Pane screenshot copied", type: "success" });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not copy pane screenshot.";
-      pluginRegistry.notify({ body: message, type: "error" });
-    } finally {
-      shot.end();
-    }
-  }, [closePaneMenu, pluginRegistry, rendererHost, shots]);
 
   const canExportPaneCsv = useCallback((paneId: string) => {
     const pane = paneMap.get(paneId);
@@ -150,13 +123,6 @@ export function useShellPaneActions({
     return true;
   }, [focusedPaneId, persistLayout, pluginRegistry, previousFocusedPaneId, visibleLayout]);
 
-  const copyFocusedPaneScreenshot = useCallback(() => {
-    if (!focusedPaneId || !nativePaneChrome || !rendererHost.copyPngImage) return false;
-    if (!paneMap.has(focusedPaneId)) return false;
-    void copyPaneScreenshot(focusedPaneId);
-    return true;
-  }, [copyPaneScreenshot, focusedPaneId, nativePaneChrome, paneMap, rendererHost.copyPngImage]);
-
   const openFocusedPaneSettings = useCallback(() => {
     if (!focusedPaneId || !pluginRegistry.hasPaneSettings(focusedPaneId)) return false;
     openPaneSettings(focusedPaneId);
@@ -209,8 +175,6 @@ export function useShellPaneActions({
     canExportPaneCsv,
     closeAllFloatingPanes,
     closeFocusedPane,
-    copyFocusedPaneScreenshot,
-    copyPaneScreenshot,
     exportFocusedPaneCsv,
     exportPaneCsv,
     gridlockVisiblePanes,

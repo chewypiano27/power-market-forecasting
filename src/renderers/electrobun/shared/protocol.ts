@@ -88,7 +88,6 @@ interface DesktopBackendRequestMap {
   "host.openExternal": { request: { url: string }; response: boolean };
   "host.copyText": { request: { text: string }; response: null };
   "host.focusWindow": { request: null; response: null };
-  "host.copyPngImage": { request: { pngBase64: string }; response: null };
   "host.readText": { request: null; response: string };
   "host.saveTextFile": {
     request: { name: string; text: string; mimeType: string };

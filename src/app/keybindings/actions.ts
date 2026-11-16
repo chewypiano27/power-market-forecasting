@@ -25,7 +25,6 @@ export type CoreKeybindingActionId =
   | "pane-new-layout"
   | "pane-float"
   | "pane-pop-out"
-  | "pane-screenshot"
   | "pane-export-csv"
   | "pane-share"
   | "pane-ask"
@@ -59,7 +58,6 @@ export const PANE_ACTION_IDS = new Set<CoreKeybindingActionId>([
   "pane-new-layout",
   "pane-float",
   "pane-pop-out",
-  "pane-screenshot",
   "pane-export-csv",
   "pane-share",
   "pane-ask",
@@ -213,13 +211,6 @@ export const KEYBINDING_ACTIONS: readonly KeybindingActionDef[] = [
     category: "Pane Management",
     description: "Pop the focused pane out to a desktop window.",
     defaults: ["CmdOrCtrl+Shift+O"],
-    desktopOnly: true,
-  },
-  {
-    id: "pane-screenshot",
-    category: "Pane Management",
-    description: "Copy a screenshot of the focused pane.",
-    defaults: ["CmdOrCtrl+Shift+C"],
     desktopOnly: true,
   },
   {
