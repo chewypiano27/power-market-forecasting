@@ -18,6 +18,7 @@ export const workstationDemand: Record<string, readonly [string, string]> = {
   "PEAK DEMAND": ["DEMANDA MÁXIMA", "峰值需求"],
   "LOCAL CANDIDATE": ["MODELO LOCAL EN PRUEBA", "本地候选模型"],
   "Daily peak demand · MW": ["Demanda máxima diaria · MW", "每日峰值需求 · MW"],
+  "Base model fit: {days} days ({start}–{end}); one summer.": ["Ajuste del modelo base: {days} días ({start}–{end}); un verano.", "基础模型拟合：{days}天（{start}–{end}）；涵盖一个夏季。"],
   "Forecast peak demand": ["Demanda máxima prevista", "预测峰值需求"],
   "Same weekday last week": ["Mismo día de la semana anterior", "上周同一天"],
   "Scheduled ({zone})": ["Programado ({zone})", "计划发布时间（{zone}）"],
