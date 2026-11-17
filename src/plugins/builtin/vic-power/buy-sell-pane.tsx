@@ -106,7 +106,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
     { label: "Signal", value: decision.action, color: actionColor },
     { label: "Expected move", value: `${decision.expectedMove >= 0 ? "+" : "−"}$${Math.abs(decision.expectedMove).toFixed(2)}/MWh`, tone: decision.expectedMove >= 0 ? "positive" : "negative" },
     { label: "Entry price", value: `$${decision.entryMwHPrice.toFixed(2)}/MWh` },
-    { label: "Price estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
+    { label: "Estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
   ] : [];
   const evaluation = resource.data?.evaluation;
   const dataThrough = resource.data?.liveTimestamp ?? null;
