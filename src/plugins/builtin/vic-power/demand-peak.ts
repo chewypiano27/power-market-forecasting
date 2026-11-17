@@ -16,15 +16,33 @@ const validDate = (value: unknown): value is string => {
 export function validatePeakArtifact(value: unknown): PeakArtifact | null {
   if (!value || typeof value !== "object") return null;
   const data = value as PeakArtifact;
-  if (data.schemaVersion !== 2 || data.kind !== "daily-peak-mw-ridge-corrected"
-    || data.biasCorrection?.method !== "mean-completed-errors" || data.biasCorrection.lagDays !== 2 || ![7, 14, 28, 56].includes(data.biasCorrection.days) || JSON.stringify(data.featureNames) !== JSON.stringify(PEAK_FEATURES)
-    || ![data.means, data.scales, data.weights].every(array => Array.isArray(array) && array.length === PEAK_FEATURES.length && array.every(value => typeof value === "number" && Number.isFinite(value)))
-    || data.scales.some(value => value <= 0) || typeof data.intercept !== "number" || !Number.isFinite(data.intercept)
-    || !validDate(data.trainingStart) || !validDate(data.trainingEnd) || !validDate(data.calibrationEnd) || !validDate(data.testEnd)
-    || !(data.trainingStart <= data.trainingEnd && data.trainingEnd < data.calibrationEnd && data.calibrationEnd < data.testEnd)
-    || data.sourceContract?.model !== DEMAND_MODEL || data.sourceContract.policy !== DEMAND_FORECAST_POLICY || !validDate(data.sourceContract.asIssuedFrom)
-    || typeof data.sourceContract.provenanceEvidence !== "string" || !data.sourceContract.provenanceEvidence.trim()
-    || ![data.evaluationSha256, data.sourceManifestHash].every(value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value))) return null;
+  if (data.schemaVersion !== 2 || data.kind !== "daily-peak-mw-ridge-corrected") return null;
+
+  const correction = data.biasCorrection;
+  if (correction?.method !== "mean-completed-errors" || correction.lagDays !== 2
+    || ![7, 14, 28, 56].includes(correction.days)) return null;
+  if (JSON.stringify(data.featureNames) !== JSON.stringify(PEAK_FEATURES)) return null;
+
+  const vectors = [data.means, data.scales, data.weights];
+  const finiteVector = (array: unknown): array is number[] => Array.isArray(array)
+    && array.length === PEAK_FEATURES.length
+    && array.every(value => typeof value === "number" && Number.isFinite(value));
+  if (!vectors.every(finiteVector)) return null;
+  if (data.scales.some(value => value <= 0)
+    || typeof data.intercept !== "number" || !Number.isFinite(data.intercept)) return null;
+
+  const dates = [data.trainingStart, data.trainingEnd, data.calibrationEnd, data.testEnd];
+  if (!dates.every(validDate)) return null;
+  const chronological = data.trainingStart <= data.trainingEnd
+    && data.trainingEnd < data.calibrationEnd && data.calibrationEnd < data.testEnd;
+  if (!chronological) return null;
+
+  const source = data.sourceContract;
+  if (source?.model !== DEMAND_MODEL || source.policy !== DEMAND_FORECAST_POLICY
+    || !validDate(source.asIssuedFrom) || typeof source.provenanceEvidence !== "string"
+    || !source.provenanceEvidence.trim()) return null;
+  const hashes = [data.evaluationSha256, data.sourceManifestHash];
+  if (!hashes.every(value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value))) return null;
   return data;
 }
 /** Frozen base estimate; displayed forecasts also apply the completed-error correction. */
