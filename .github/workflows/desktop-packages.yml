@@ -34,6 +34,15 @@ jobs:
       - name: Build Windows or Linux installer
         if: runner.os != 'macOS'
         run: bun run desktop:build --env=stable
+      - name: Install Linux display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1
+      - name: Check native renderer startup
+        if: runner.os != 'Linux'
+        run: bun scripts/check-desktop-startup.ts
+      - name: Check Linux renderer startup
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a bun scripts/check-desktop-startup.ts
       - name: Record SHA-256 checksums
         shell: bash
         run: |

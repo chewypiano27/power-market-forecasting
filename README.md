@@ -121,6 +121,10 @@ To check an Intel package's checksum, open Terminal in its download folder:
 shasum -a 256 -c VIC1-1.0.0-macos-x64.zip.sha256
 ```
 
+The native workflow also copies each built app outside the checkout and checks that
+its renderer completes backend initialization with a fresh profile. This startup
+check does not replace interactive installation and feature checks.
+
 ## Troubleshooting
 
 - **`bun: command not found`:** install Bun and reopen Terminal.
@@ -141,7 +145,7 @@ check, including any macOS security prompt.
 The **Desktop packages** GitHub Actions workflow builds on native Apple silicon,
 Intel Mac, Windows x64 and Linux x64 runners. It can be run manually from the
 repository's **Actions** tab once the workflow is available on the default branch.
-The packaging branch also runs it when pushed.
+It also runs for pushes to `main`.
 
 Open a successful run and download the artifact for the recipient's computer:
 
