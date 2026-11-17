@@ -2,12 +2,12 @@ import { parseAemoPriceDemandCsv } from "../src/plugins/builtin/vic-power/aemo-p
 import { hourHistory } from "../src/plugins/builtin/vic-power/buy-sell-history";
 import { evaluateBuySell } from "../src/plugins/builtin/vic-power/buy-sell-evaluation";
 
-if (Bun.argv.length !== 4) {
-  throw new Error("Usage: bun scripts/evaluate-buy-sell-baseline.ts october.csv november.csv");
+if (Bun.argv.length !== 4 && Bun.argv.length !== 6) {
+  throw new Error("Usage: bun scripts/evaluate-buy-sell-baseline.ts previous-month.csv current-month.csv [from-date through-date]");
 }
-const files = await Promise.all(Bun.argv.slice(2).map(async path =>
+const files = await Promise.all(Bun.argv.slice(2, 4).map(async path =>
   parseAemoPriceDemandCsv(await Bun.file(path).text())));
-const evaluation = evaluateBuySell(hourHistory(files.flat()), "2026-11-01", "2026-11-15");
+const evaluation = evaluateBuySell(hourHistory(files.flat()), Bun.argv[4] ?? "2026-11-01", Bun.argv[5] ?? "2026-11-15");
 // Keep paired outcomes together: resample whole days, preserving within-day dependence.
 const days = [...new Set(evaluation.rows.map(row => row.time.slice(0, 10)))];
 const byDay = days.map(day => evaluation.rows.filter(row => row.time.startsWith(day)));

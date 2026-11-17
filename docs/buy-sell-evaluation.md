@@ -43,5 +43,7 @@ Keep the committed coefficients, penalty and threshold unchanged from 18 Novembe
 through 18 December 2026. Report every complete hour in that period, with the
 same-history inputs and same called-hour baseline. Record missing-input hours,
 coverage, hit rate and paired daily uncertainty. Do not select settings using
-that period's outcomes. This prospective protocol does not change the status of
+that period's outcomes. Supply optional start/end dates to the evaluation command
+(for example `2026-11-18 2026-12-18`), using monthly inputs covering that window
+and its weekly lookback. This prospective protocol does not change the status of
 previously inspected November results.
