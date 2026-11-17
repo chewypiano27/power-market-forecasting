@@ -1,15 +1,24 @@
-import { cp, mkdir, mkdtemp, readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 // Exercise the native renderer and backend handshake from a copy outside the repo.
 const platform = process.platform === "darwin" ? "macos" : process.platform === "win32" ? "win" : "linux";
-const built = resolve(`build/stable-${platform}-${process.arch}`);
-const candidates = (await readdir(built, { withFileTypes: true })).filter(entry => entry.isDirectory());
-if (candidates.length !== 1) throw new Error(`Expected one app bundle under ${built}`);
 const scratch = await mkdtemp(join(tmpdir(), "vic1-startup-"));
+const prefix = `stable-${platform}-${process.arch}-`;
+const archive = (await readdir("artifacts")).find(name => name.startsWith(prefix) && name.endsWith(".tar.zst"));
+if (!archive) throw new Error("The native app archive is missing");
+const decompressor = resolve(`node_modules/electrobun/dist-${platform}-${process.arch}/zig-zstd${process.platform === "win32" ? ".exe" : ""}`);
+const tar = join(scratch, "app.tar");
+async function run(command: string[]) {
+  const code = await Bun.spawn(command, { stdout: "inherit", stderr: "inherit" }).exited;
+  if (code !== 0) throw new Error(`Archive preparation failed: ${command[0]} (${code})`);
+}
+await run([decompressor, "decompress", "-i", resolve("artifacts", archive), "-o", tar]);
+await run(["tar", "-xf", tar, "-C", scratch]);
+const candidates = (await readdir(scratch, { withFileTypes: true })).filter(entry => entry.isDirectory());
+if (candidates.length !== 1) throw new Error("Expected one extracted app bundle");
 const bundle = join(scratch, candidates[0]!.name);
-await cp(join(built, candidates[0]!.name), bundle, { recursive: true, dereference: false });
 const executable = join(bundle, ...(platform === "macos" ? ["Contents", "MacOS"] : ["bin"]),
   process.platform === "win32" ? "launcher.exe" : "launcher");
 const cwd = join(scratch, "working-directory");
@@ -25,7 +34,7 @@ try {
   while (Date.now() < deadline) {
     if (await Bun.file(ready).exists()) {
       const result = await Bun.file(ready).json();
-      if (result.rendererInitialized !== true || result.architecture !== process.arch) {
+      if (result.rendererInitialized !== true || result.architecture !== process.arch || result.platform !== process.platform) {
         throw new Error("Renderer startup returned an unexpected platform or architecture");
       }
       console.log(JSON.stringify({ ...result, bundle: basename(bundle), outsideSourceTree: true,
