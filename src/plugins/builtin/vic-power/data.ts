@@ -735,8 +735,11 @@ function timedAemoFetcher(transport: HttpFetchTransport, timeoutMs: number): Htt
 export async function fetchVicPowerMarketHistory(options: {
   fetcher?: HttpFetchTransport;
   now?: Date;
+  minimumIntervals?: 12 | 24;
   requestTimeoutMs?: number;
 } = {}): Promise<VicMarketPoint[]> {
   const fetcher = timedAemoFetcher(options.fetcher ?? httpFetch, options.requestTimeoutMs ?? 20_000);
-  return (await fetchAemoLive(fetcher, options.now ?? new Date())).market;
+  const now = options.now ?? new Date();
+  if (options.minimumIntervals === 24) return (await fetchNemwebDispatch(fetcher, now, 24)).market;
+  return (await fetchAemoLive(fetcher, now)).market;
 }

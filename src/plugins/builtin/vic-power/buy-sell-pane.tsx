@@ -72,27 +72,26 @@ async function loadDecision() {
       if (!response.ok) throw new Error(`AEMO price and demand data request failed (HTTP ${response.status}).`);
       return parseAemoPriceDemandCsv(await response.text());
     })).then((files) => files.flat()),
-    fetchVicPowerMarketHistory({ now }),
+    fetchVicPowerMarketHistory({ now, minimumIntervals: 24 }).catch(() => []),
   ]);
   const currentMarketPoint = marketPoints.filter((point) => point.timestamp && dispatchTime(point.timestamp) <= now.getTime())
     .toSorted((a, b) => dispatchTime(a.timestamp!) - dispatchTime(b.timestamp!)).at(-1);
-  if (!currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000) {
-    throw new Error("AEMO has not published a recent VIC1 dispatch. No stale signal is shown.");
-  }
+  let unavailableReason = !currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000
+    ? "AEMO has not published a recent VIC1 dispatch. Waiting for current inputs." : null;
   const baseHistory = hourHistory(rows).filter((row) => Date.parse(`${row.time}+10:00`) + 3_600_000 <= now.getTime());
   const history = mergeMarketHours(baseHistory, liveHourHistory(marketPoints, now));
-  if (history.length < 168) throw new Error("Eight complete days of hourly VIC price and demand history are not available yet.");
-  const last = history.at(-1)!;
-  const target = new Date(Date.parse(`${last.time}Z`) + 3_600_000);
+  if (history.length < 168) unavailableReason = "Eight complete days of hourly VIC price and demand history are not available yet.";
+  const last = history.at(-1);
+  const target = new Date(Date.parse(`${last?.time ?? nemDate(now) + "T00:00:00"}Z`) + 3_600_000);
   const targetHour = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}T${String(target.getUTCHours()).padStart(2, "0")}:00:00`;
   if (now.getTime() - Date.parse(`${targetHour}+10:00`) >= 3_600_000) {
-    throw new Error("The latest complete hourly price is unavailable. Waiting for AEMO hourly inputs.");
+    unavailableReason = "The latest complete hourly price is unavailable. Waiting for AEMO hourly inputs.";
   }
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
   const completeLive = liveHourHistory(marketPoints, now);
   const evaluationHistory = mergeMarketHours(baseHistory, completeLive);
-  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
-    liveTimestamp: currentMarketPoint.timestamp };
+  return { decision: unavailableReason ? { status: "unavailable" as const, reason: unavailableReason } : decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
+    liveTimestamp: currentMarketPoint?.timestamp ?? null };
 }
 
 export function BuySellPane({ width, height, focused }: PaneProps) {
@@ -139,9 +138,17 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   }), [colors.negative, colors.positive, evaluation?.series]);
   const evaluationSeries = [{ ...dailyHitRate, panelId: "hit-rate", unit: "pp", unitGroup: "percentage" }];
   const chartHeight = Math.max(8, height - tabRows - statGridRows(liveStats, width) - 4);
+  if (view === "evaluation" && !evaluation) {
+    return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
+      {tabStrip}<PaneStatusBody loading={resource.loading} error={resource.error} empty subject="Buy/Sell evaluation"
+        emptyTitle="Completed hourly observations are unavailable."
+        retry={{ onRetry: resource.reload, label: "Refresh", pending: resource.loading }}
+        width={width} height={Math.max(0, height - tabRows)} />
+    </Box>;
+  }
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
-      { label: "Heuristic", value: `${evaluation?.baselineCorrect ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.baselineHitRate ?? 0) * 100).toFixed(0)}%` },
+      { label: "Baseline", value: `${evaluation?.baselineCorrect ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.baselineHitRate ?? 0) * 100).toFixed(0)}%` },
       { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
       { label: "Coverage", value: `${evaluation?.calls ?? 0}/${evaluation?.hours ?? 0} · ${((evaluation?.calls ?? 0) / Math.max(1, evaluation?.hours ?? 0) * 100).toFixed(0)}%` },
     ];

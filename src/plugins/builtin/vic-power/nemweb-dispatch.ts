@@ -37,7 +37,7 @@ export function parseNemwebDispatch(csv: string, now: number): DispatchPoint[] {
   });
 }
 
-export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date) {
+export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date, intervalCount: 12 | 24 = 12) {
   const listing = await fetcher(DIRECTORY);
   if (!listing.ok) throw new Error("NEMWeb dispatch directory unavailable");
   const names = [...new Set([...(await listing.text()).matchAll(/PUBLIC_DISPATCHIS_\d{12}_\d+\.zip/gi)].map(match => match[0]))].sort().reverse();
@@ -47,10 +47,10 @@ export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date
     const instant = dispatchTime(`${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:00`);
     if (timestamps.has(stamp) || !Number.isFinite(instant) || instant > now.getTime() + 300_000 || instant < now.getTime() - 2 * 86_400_000) continue;
     timestamps.add(stamp); selected.push(name);
-    if (selected.length === 12) break;
+    if (selected.length === intervalCount) break;
   }
   const observations: DispatchPoint[] = [];
-  // Four at a time keeps refreshes bounded while recovering enough actual history for a 30-minute move.
+  // Four at a time keeps refreshes bounded while recovering the requested recent interval window.
   for (let offset = 0; offset < selected.length; offset += 4) {
     const batch = await Promise.all(selected.slice(offset, offset + 4).map(async name => {
       try {
