@@ -1,19 +1,30 @@
-// Compare the same-weekday price baseline only on the frozen model’s called hours.
-import {decideBuySell} from '../src/plugins/builtin/vic-power/buy-sell-model';
-import {victorianCalendarAnnotation} from '../src/plugins/builtin/vic-power/victoria-calendar';
-const groups=new Map<string,{price:number,demand:number,count:number}>();
-if (Bun.argv.length !== 4) throw new Error('Usage: bun scripts/evaluate-buy-sell-baseline.ts october.csv november.csv');
-for(const path of Bun.argv.slice(2)) {
- for(const line of (await Bun.file(path).text()).trim().split(/\r?\n/).slice(1)) {
- const [region,date,demand,price,type]=line.split(','); if(region!=='VIC1'||type!=='TRADE')continue;
- const stamp=date!.replaceAll('/','-').replace(' ','T'); const time=new Date(Math.floor((Date.parse(stamp+'Z')-300000)/3600000)*3600000).toISOString().slice(0,19);
- const g=groups.get(time)??{price:0,demand:0,count:0};g.price+=Number(price);g.demand+=Number(demand);g.count++;groups.set(time,g);
- }
+import { parseAemoPriceDemandCsv } from "../src/plugins/builtin/vic-power/aemo-price-demand-csv";
+import { hourHistory } from "../src/plugins/builtin/vic-power/buy-sell-history";
+import { evaluateBuySell } from "../src/plugins/builtin/vic-power/buy-sell-evaluation";
+
+if (Bun.argv.length !== 4) {
+  throw new Error("Usage: bun scripts/evaluate-buy-sell-baseline.ts october.csv november.csv");
 }
-const history=[...groups].filter(([,g])=>g.count===12).map(([time,g])=>({time,price:g.price/g.count,demand:g.demand/g.count})).sort((a,b)=>a.time.localeCompare(b.time));
-const byTime=new Map(history.map(r=>[r.time,r]));let hours=0,calls=0,correct=0,baselineCorrect=0,ties=0;
-for(let i=168;i<history.length;i++) {const actual=history[i]!;if(actual.time<'2026-11-01'||actual.time>='2026-11-16')continue;
-const prior=history.slice(i-168,i);const d=decideBuySell(prior,actual.time,victorianCalendarAnnotation(actual.time.slice(0,10)));if(d.status!=='ready')continue;hours++;if(d.action==='HOLD')continue;
-const entry=prior.at(-1)!.price;const move=actual.price-entry;const weekly=byTime.get(new Date(Date.parse(actual.time+'Z')-168*3600000).toISOString().slice(0,19))!;calls++; if((d.action==='BUY'?1:-1)*move>0)correct++;const baselineMove=weekly.price-entry;if(baselineMove*move>0)baselineCorrect++;if(baselineMove===0)ties++;
+const files = await Promise.all(Bun.argv.slice(2).map(async path =>
+  parseAemoPriceDemandCsv(await Bun.file(path).text())));
+const evaluation = evaluateBuySell(hourHistory(files.flat()), "2026-11-01", "2026-11-15");
+// Keep paired outcomes together: resample whole days, preserving within-day dependence.
+const days = [...new Set(evaluation.rows.map(row => row.time.slice(0, 10)))];
+const byDay = days.map(day => evaluation.rows.filter(row => row.time.startsWith(day)));
+let seed = 20261117;
+function randomIndex(size: number) {
+  seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+  return Math.floor(seed / 2 ** 32 * size);
 }
-console.log(JSON.stringify({hours,calls,correct,baselineCorrect,ties,hitRate:correct/calls,baselineHitRate:baselineCorrect/calls},null,2));
+const differences: number[] = [];
+for (let sample = 0; sample < 10000 && days.length; sample++) {
+  const rows = days.flatMap(() => byDay[randomIndex(days.length)]!);
+  if (rows.length) differences.push(rows.reduce((sum, row) =>
+    sum + Number(row.correct) - Number(row.baselineCorrect), 0) / rows.length);
+}
+differences.sort((a, b) => a - b);
+console.log(JSON.stringify({ ...evaluation,
+  pairedDayBootstrap95: differences.length ? [differences[Math.floor(differences.length * .025)],
+    differences[Math.floor(differences.length * .975)]] : null,
+  note: "Reused historical sample; gross price moves exclude costs and operating constraints. Bootstrap uses paired whole days, seed 20261117, 10000 samples."
+}, null, 2));
