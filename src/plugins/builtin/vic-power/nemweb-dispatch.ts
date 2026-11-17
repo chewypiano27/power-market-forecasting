@@ -37,7 +37,7 @@ export function parseNemwebDispatch(csv: string, now: number): DispatchPoint[] {
   });
 }
 
-export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date, intervalCount: 12 | 24 = 12) {
+export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date, intervalCount: 12 | 24 | 36 = 12) {
   const listing = await fetcher(DIRECTORY);
   if (!listing.ok) throw new Error("NEMWeb dispatch directory unavailable");
   const names = [...new Set([...(await listing.text()).matchAll(/PUBLIC_DISPATCHIS_\d{12}_\d+\.zip/gi)].map(match => match[0]))].sort().reverse();

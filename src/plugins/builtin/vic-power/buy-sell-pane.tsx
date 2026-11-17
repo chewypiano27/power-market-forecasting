@@ -11,7 +11,7 @@ import { decideBuySell, type BuySellHourlyPrice } from "./buy-sell-model";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
 import { chartDate, dispatchTime, NEM_TIME_ZONE } from "./analytics";
 import { evaluateBuySell } from "./buy-sell-evaluation";
-import { hourHistory, liveHourHistory } from "./buy-sell-history";
+import { hourHistory, liveHourHistory, CompleteHourHistory } from "./buy-sell-history";
 import { FILL_REST } from "../../../components/ui/fill";
 
 function nemDate(date: Date): string {
@@ -40,15 +40,11 @@ function formatHitRateDelta(value: number): string {
   return `${rounded > 0 ? "+" : ""}${rounded}pp`;
 }
 
-function mergeMarketHours(base: readonly BuySellHourlyPrice[], live: readonly BuySellHourlyPrice[]): BuySellHourlyPrice[] {
-  const hours = new Map(base.map((row) => [row.time, row]));
-  for (const row of live) hours.set(row.time, row);
-  return [...hours.values()].sort((a, b) => a.time.localeCompare(b.time));
-}
+const completeHours = new CompleteHourHistory();
 
 function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
   const evaluation = evaluateBuySell(history);
-  const lastAvailable = history.filter(row => row.time >= "2026-11-01").at(-1)?.time;
+  const lastAvailable = evaluation.through;
   const series = [];
   for (const cursor = new Date("2026-11-01T00:00:00Z"); lastAvailable && cursor.toISOString().slice(0, 10) <= lastAvailable.slice(0, 10); cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     const date = cursor.toISOString().slice(0, 10);
@@ -72,14 +68,14 @@ async function loadDecision() {
       if (!response.ok) throw new Error(`AEMO price and demand data request failed (HTTP ${response.status}).`);
       return parseAemoPriceDemandCsv(await response.text());
     })).then((files) => files.flat()),
-    fetchVicPowerMarketHistory({ now, minimumIntervals: 24 }).catch(() => []),
+    fetchVicPowerMarketHistory({ now, minimumIntervals: 36 }).catch(() => []),
   ]);
   const currentMarketPoint = marketPoints.filter((point) => point.timestamp && dispatchTime(point.timestamp) <= now.getTime())
     .toSorted((a, b) => dispatchTime(a.timestamp!) - dispatchTime(b.timestamp!)).at(-1);
   let unavailableReason = !currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000
     ? "AEMO has not published a recent VIC1 dispatch. Waiting for current inputs." : null;
   const baseHistory = hourHistory(rows).filter((row) => Date.parse(`${row.time}+10:00`) + 3_600_000 <= now.getTime());
-  const history = mergeMarketHours(baseHistory, liveHourHistory(marketPoints, now));
+  const history = completeHours.merge(baseHistory, liveHourHistory(marketPoints, now));
   if (history.length < 168) unavailableReason = "Eight complete days of hourly VIC price and demand history are not available yet.";
   const last = history.at(-1);
   const target = new Date(Date.parse(`${last?.time ?? nemDate(now) + "T00:00:00"}Z`) + 3_600_000);
@@ -88,8 +84,7 @@ async function loadDecision() {
     unavailableReason = "The latest complete hourly price is unavailable. Waiting for AEMO hourly inputs.";
   }
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
-  const completeLive = liveHourHistory(marketPoints, now);
-  const evaluationHistory = mergeMarketHours(baseHistory, completeLive);
+  const evaluationHistory = history;
   return { decision: unavailableReason ? { status: "unavailable" as const, reason: unavailableReason } : decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
     liveTimestamp: currentMarketPoint?.timestamp ?? null };
 }
@@ -111,7 +106,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
     { label: "Signal", value: decision.action, color: actionColor },
     { label: "Expected move", value: `${decision.expectedMove >= 0 ? "+" : "−"}$${Math.abs(decision.expectedMove).toFixed(2)}/MWh`, tone: decision.expectedMove >= 0 ? "positive" : "negative" },
     { label: "Entry price", value: `$${decision.entryMwHPrice.toFixed(2)}/MWh` },
-    { label: "Price estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
+    { label: "Estimate", value: `$${decision.forecastPrice.toFixed(2)}/MWh` },
   ] : [];
   const evaluation = resource.data?.evaluation;
   const dataThrough = resource.data?.liveTimestamp ?? null;

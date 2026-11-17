@@ -50,3 +50,20 @@ export function liveHourHistory(points: Awaited<ReturnType<typeof fetchVicPowerM
   return materializeHours(groups).filter((row) => Date.parse(`${row.time}+10:00`) + 3_600_000 <= now.getTime());
 }
 
+
+/** Retain complete dispatch hours between refreshes until the monthly file catches up. */
+export class CompleteHourHistory {
+  private readonly recent = new Map<string, BuySellHourlyPrice>();
+
+  merge(base: readonly BuySellHourlyPrice[], live: readonly BuySellHourlyPrice[]): BuySellHourlyPrice[] {
+    for (const row of live) this.recent.set(row.time, row);
+    const latest = [...this.recent.keys()].sort().at(-1);
+    if (latest) {
+      const cutoff = new Date(Date.parse(`${latest}Z`) - 48 * 3_600_000).toISOString().slice(0, 19);
+      for (const time of this.recent.keys()) if (time < cutoff) this.recent.delete(time);
+    }
+    const merged = new Map(base.map(row => [row.time, row]));
+    for (const row of this.recent.values()) merged.set(row.time, row);
+    return [...merged.values()].sort((a, b) => a.time.localeCompare(b.time));
+  }
+}

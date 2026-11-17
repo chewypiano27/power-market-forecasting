@@ -6,6 +6,7 @@ export function evaluateBuySell(history: readonly BuySellHourlyPrice[], from = "
   const byTime = new Map(history.map(row => [row.time, row]));
   const rows = [];
   let hours = 0;
+  let lastEvaluated: string | null = null;
   for (let index = 168; index < history.length; index++) {
     const actual = history[index]!;
     if (actual.time.slice(0, 10) < from || actual.time.slice(0, 10) > through) continue;
@@ -13,6 +14,7 @@ export function evaluateBuySell(history: readonly BuySellHourlyPrice[], from = "
       victorianCalendarAnnotation(actual.time.slice(0, 10)));
     if (decision.status !== "ready") continue;
     hours++;
+    lastEvaluated = actual.time;
     if (decision.action === "HOLD") continue;
     const weeklyTime = new Date(Date.parse(`${actual.time}Z`) - 168 * 3_600_000).toISOString().slice(0, 19);
     const weekly = byTime.get(weeklyTime)!;
@@ -26,7 +28,7 @@ export function evaluateBuySell(history: readonly BuySellHourlyPrice[], from = "
   const correct = rows.filter(row => row.correct).length;
   const baselineCorrect = rows.filter(row => row.baselineCorrect).length;
   const mean = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  return { hours, calls, correct, baselineCorrect, hitRate: calls ? correct / calls : null,
+  return { through: lastEvaluated, hours, calls, correct, baselineCorrect, hitRate: calls ? correct / calls : null,
     baselineHitRate: calls ? baselineCorrect / calls : null,
     meanGrossMoveMwH: mean(rows.map(row => row.grossMoveMwH)),
     baselineMeanGrossMoveMwH: mean(rows.map(row => row.baselineGrossMoveMwH)), rows };

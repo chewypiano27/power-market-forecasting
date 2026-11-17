@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { hourHistory, liveHourHistory } from "../src/plugins/builtin/vic-power/buy-sell-history";
+import { hourHistory, liveHourHistory, CompleteHourHistory } from "../src/plugins/builtin/vic-power/buy-sell-history";
 const rows = Array.from({ length: 12 }, (_, i) => ({
   settlementDate: `2026-11-17 ${i === 11 ? "11:00" : `10:${String((i + 1) * 5).padStart(2, "0")}`}:00`,
   region: "VIC1", rrp: i, totalDemand: 6000, periodType: "TRADE",
@@ -15,4 +15,13 @@ test("live entry excludes incomplete and unfinished hours", () => {
   expect(liveHourHistory(points.slice(0, 1) as any, now)).toHaveLength(0);
   expect(liveHourHistory(points as any, now)).toHaveLength(1);
   expect(liveHourHistory(points as any, new Date("2026-11-17T00:55:00Z"))).toHaveLength(0);
+});
+
+test("completed hours survive a rolling dispatch window and expire after two days", () => {
+  const cache = new CompleteHourHistory();
+  const row = (time: string) => ({ time, price: 50, demand: 6000 });
+  cache.merge([], [row("2026-11-17T18:00:00"), row("2026-11-17T19:00:00")]);
+  expect(cache.merge([], [row("2026-11-17T20:00:00")])).toHaveLength(3);
+  expect(cache.merge([], [])).toHaveLength(3);
+  expect(cache.merge([], [row("2026-11-20T20:00:00")])).toHaveLength(1);
 });
