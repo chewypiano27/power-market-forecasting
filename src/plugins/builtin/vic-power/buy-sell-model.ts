@@ -43,11 +43,10 @@ function hourAt(targetHour: string, offset: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}:00:00`;
 }
 
-/** Predict the next hourly spot-price change from a fixed, fit-through-October Ridge model. */
-export function decideBuySell(history: readonly BuySellHourlyPrice[], targetHour: string, holiday: {
+/** Shared feature contract for fitting, replay and desktop inference. */
+export function buySellInputs(history: readonly BuySellHourlyPrice[], targetHour: string, holiday: {
   isPublicHoliday: boolean; isSchoolHoliday: boolean;
-}): BuySellDecision | { status: "unavailable"; reason: string } {
-  const model = BUY_SELL_MODEL;
+}): { status: "ready"; features: number[]; entryPrice: number } | { status: "unavailable"; reason: string } {
   const byTime = new Map(history.map((row) => [row.time, row]));
   const entry = byTime.get(hourAt(targetHour, -1));
   const lag24 = byTime.get(hourAt(targetHour, -24));
@@ -67,10 +66,24 @@ export function decideBuySell(history: readonly BuySellHourlyPrice[], targetHour
     priorDay.reduce((sum, row) => sum + row!.demand, 0) / 24,
     Math.asinh(lag24.price / 100), Math.asinh(lag168.price / 100),
     priorDay.reduce((sum, row) => sum + Math.asinh(row!.price / 100), 0) / 24];
+  if (features.some(value => !Number.isFinite(value)) || !Number.isFinite(entry.price)) {
+    return { status: "unavailable", reason: "Hourly model inputs must be finite." };
+  }
+  return { status: "ready", features, entryPrice: entry.price };
+}
+
+/** Predict the next hourly spot-price change from a fixed, fit-through-October Ridge model. */
+export function decideBuySell(history: readonly BuySellHourlyPrice[], targetHour: string, holiday: {
+  isPublicHoliday: boolean; isSchoolHoliday: boolean;
+}): BuySellDecision | { status: "unavailable"; reason: string } {
+  const model = BUY_SELL_MODEL;
+  const inputs = buySellInputs(history, targetHour, holiday);
+  if (inputs.status !== "ready") return inputs;
+  const { features } = inputs;
   const delta = model.intercept + features.reduce((sum, value, index) => (
     sum + model.weights[index]! * (value - model.means[index]!) / model.scales[index]!
   ), 0);
-  const entryMwHPrice = entry.price;
+  const entryMwHPrice = inputs.entryPrice;
   const forecastPrice = 100 * Math.sinh(Math.asinh(entryMwHPrice / 100) + delta);
   if (!Number.isFinite(forecastPrice)) return { status: "unavailable", reason: "Price estimate is invalid." };
   const expectedMove = forecastPrice - entryMwHPrice;

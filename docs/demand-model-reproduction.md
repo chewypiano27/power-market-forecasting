@@ -46,3 +46,24 @@ bun run scripts/audit-demand-training-data.ts \
 The offline audit verifies the source manifest, all AEMO and weather snapshot hashes, feature and demand-label parity, forecast availability at each issue cutoff, and the same-weekday baseline.
 
 Weather values come from the [Open-Meteo Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api) under [CC BY 4.0](https://open-meteo.com/en/license). AEMO monthly demand data comes from AEMO's public [price and demand archive](https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/market-data-nem/price-and-demand-data). The scripts run locally and do not retain API capture or model calculation timestamps; the dataset retains only the fixed issue and outcome cutoffs used to check leakage.
+
+## Penalty sensitivity check
+
+A training-only check on the existing chronological folds on 17 November compared
+penalties 0, 0.001, 0.01, 0.1, 1, 10 and 100. Their mean absolute errors were
+446.781, 446.782, 446.790, 446.873, 447.612, 457.126 and 566.960 MW respectively.
+The zero-penalty case used least squares. The deployed 0.1 penalty is therefore
+weak regularisation; these results do not show a meaningful accuracy advantage
+over least squares. The deployed coefficients remain frozen. Changing the search
+grid after inspecting the evaluation period would require a new evaluation design.
+
+The historical interval diagnostic found 73.0% coverage for an 80% target; the app
+already withholds that band. A 90-day rolling alternative widened the band by
+about 22% and reached approximately 80% aggregate historical coverage, with
+uneven seasonal results. It has not replaced the frozen interval method.
+
+AEMO predispatch comparison results were already collected for 3–12 November:
+model MAE 124.79 MW, AEMO 207.05 MW, weekly baseline 363.13 MW against five-minute
+peak demand. AEMO uses a half-hour time grid, so these ten days are a limited
+resolution-sensitive comparison, not a general superiority claim. The original
+snapshots and hashes are retained in the project evidence, outside the app source.
