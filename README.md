@@ -46,7 +46,7 @@ These instructions are an alternative to the supplied app package.
 
 ### Requirements
 
-- macOS; Intel x64 is the verified build target.
+- macOS, Windows x64, or Ubuntu 24.04 x64. The bundled Linux runtime requires glibc 2.38 or newer, GTK 3 and WebKitGTK 4.1; Ubuntu 22.04 does not satisfy that runtime requirement.
 - [Bun 1.4.4](https://bun.sh). Install it using Bun's instructions, reopen Terminal,
   and check `bun --version`.
 - Internet access for dependencies, Electrobun's native runtime and live data.
@@ -75,8 +75,8 @@ On the verified Intel Mac, launch the result with:
 open "build/dev-macos-x64/VIC1 Power Trader Workstation-dev.app"
 ```
 
-On another architecture, use the `.app` in the matching `build/dev-macos-<arch>/`
-folder. To build and open the development app in one command:
+On another Mac architecture, use the `.app` in the matching `build/dev-macos-<arch>/`
+folder. On Windows or Linux, or to build and open the development app in one command:
 
 ```sh
 bun run desktop:dev
@@ -145,7 +145,7 @@ check, including any macOS security prompt.
 The **Desktop packages** GitHub Actions workflow builds on native Apple silicon,
 Intel Mac, Windows x64 and Linux x64 runners. It can be run manually from the
 repository's **Actions** tab once the workflow is available on the default branch.
-It also runs for pushes to `main`.
+It also runs for pushes to `main`. Linux builds and startup checks use Ubuntu 24.04.
 
 Open a successful run and download the artifact for the recipient's computer:
 

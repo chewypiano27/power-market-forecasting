@@ -17,7 +17,7 @@ jobs:
             target: macos-x64
           - runner: windows-2022
             target: windows-x64
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.04
             target: linux-x64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
@@ -36,7 +36,7 @@ jobs:
         run: bun run desktop:build --env=stable
       - name: Install Linux display dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 libgtk-3-0t64 libwebkit2gtk-4.1-0 libayatana-appindicator3-1
       - name: Check native renderer startup
         if: runner.os != 'Linux'
         run: bun scripts/check-desktop-startup.ts
