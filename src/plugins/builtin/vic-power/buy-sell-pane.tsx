@@ -10,6 +10,8 @@ import { fetchVicPowerMarketHistory, parseAemoPriceDemandCsv } from "./data";
 import { decideBuySell, type BuySellHourlyPrice } from "./buy-sell-model";
 import { victorianCalendarAnnotation } from "./victoria-calendar";
 import { chartDate, dispatchTime, NEM_TIME_ZONE } from "./analytics";
+import { evaluateBuySell } from "./buy-sell-evaluation";
+import { hourHistory, liveHourHistory } from "./buy-sell-history";
 import { FILL_REST } from "../../../components/ui/fill";
 
 function nemDate(date: Date): string {
@@ -38,52 +40,6 @@ function formatHitRateDelta(value: number): string {
   return `${rounded > 0 ? "+" : ""}${rounded}pp`;
 }
 
-type MarketAccumulator = { demand: number; price: number; count: number };
-
-function hourAccumulator(groups: Map<string, MarketAccumulator>, timestamp: string, price: number, demand: number): void {
-  const match = timestamp.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) return;
-  const [, year, month, day, hour, minute] = match;
-  const intervalEnd = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-  const bucket = new Date(Math.floor((intervalEnd - 300_000) / 3_600_000) * 3_600_000);
-  const time = `${bucket.getUTCFullYear()}-${String(bucket.getUTCMonth() + 1).padStart(2, "0")}-${String(bucket.getUTCDate()).padStart(2, "0")}T${String(bucket.getUTCHours()).padStart(2, "0")}:00:00`;
-  const group = groups.get(time) ?? { demand: 0, price: 0, count: 0 };
-  group.demand += demand;
-  group.price += price;
-  group.count += 1;
-  groups.set(time, group);
-}
-
-function materializeHours(groups: Map<string, MarketAccumulator>, minimumIntervals = 12): BuySellHourlyPrice[] {
-  return [...groups].filter(([, value]) => value.count >= minimumIntervals).map(([time, value]) => ({
-    time, demand: value.demand / value.count, price: value.price / value.count,
-  })).sort((a, b) => a.time.localeCompare(b.time));
-}
-
-function hourHistory(rows: ReturnType<typeof parseAemoPriceDemandCsv>): BuySellHourlyPrice[] {
-  const groups = new Map<string, MarketAccumulator>();
-  for (const row of rows) {
-    if (row.periodType.toUpperCase() === "TRADE") hourAccumulator(groups, row.settlementDate, row.rrp, row.totalDemand);
-  }
-  return materializeHours(new Map([...groups].filter(([, value]) => value.count === 12)));
-}
-
-function liveHourHistory(points: Awaited<ReturnType<typeof fetchVicPowerMarketHistory>>, now: Date, completeOnly = false): BuySellHourlyPrice[] {
-  const groups = new Map<string, MarketAccumulator>();
-  const seen = new Set<string>();
-  for (const point of points) {
-    if (!point.timestamp || dispatchTime(point.timestamp) > now.getTime() || !Number.isFinite(point.price) || !Number.isFinite(point.demand)) continue;
-    const key = point.timestamp;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    hourAccumulator(groups, point.timestamp, point.price, point.demand);
-  }
-  const latestBucket = [...groups.keys()].sort().at(-1);
-  const minimumIntervals = completeOnly ? 12 : 1;
-  const eligible = new Map([...groups].filter(([time, value]) => value.count >= minimumIntervals || (!completeOnly && time === latestBucket)));
-  return materializeHours(eligible, 1);
-}
-
 function mergeMarketHours(base: readonly BuySellHourlyPrice[], live: readonly BuySellHourlyPrice[]): BuySellHourlyPrice[] {
   const hours = new Map(base.map((row) => [row.time, row]));
   for (const row of live) hours.set(row.time, row);
@@ -91,38 +47,18 @@ function mergeMarketHours(base: readonly BuySellHourlyPrice[], live: readonly Bu
 }
 
 function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
-  const from = "2026-11-01T00:00:00";
-  const followOnHistory = history.filter((row) => row.time >= from);
-  const lastAvailable = followOnHistory.at(-1)?.time.slice(0, 10);
-  const days = new Map<string, { calls: number; correct: number }>();
-  const cursor = new Date("2026-11-01T00:00:00Z");
-  while (lastAvailable && cursor.toISOString().slice(0, 10) <= lastAvailable) {
-    days.set(cursor.toISOString().slice(0, 10), { calls: 0, correct: 0 });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  const evaluation = evaluateBuySell(history);
+  const lastAvailable = history.filter(row => row.time >= "2026-11-01").at(-1)?.time;
+  const series = [];
+  for (const cursor = new Date("2026-11-01T00:00:00Z"); lastAvailable && cursor.toISOString().slice(0, 10) <= lastAvailable.slice(0, 10); cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const date = cursor.toISOString().slice(0, 10);
+    const rows = evaluation.rows.filter(row => row.time.startsWith(date));
+    const correct = rows.filter(row => row.correct).length;
+    const baselineCorrect = rows.filter(row => row.baselineCorrect).length;
+    series.push({ time: `${date}T12:00:00`, calls: rows.length, correct,
+      hitRateDelta: rows.length ? (correct - baselineCorrect) / rows.length * 100 : null });
   }
-  let hours = 0;
-  for (let index = 168; index < history.length; index += 1) {
-    const actual = history[index]!;
-    if (actual.time < from) continue;
-    const day = days.get(actual.time.slice(0, 10));
-    if (!day) continue;
-    const prior = history.slice(index - 168, index);
-    const decision = decideBuySell(prior, actual.time, victorianCalendarAnnotation(actual.time.slice(0, 10)));
-    if (decision.status !== "ready") continue;
-    hours += 1;
-    if (decision.action !== "HOLD") {
-      const move = actual.price - prior.at(-1)!.price;
-      const side = decision.action === "BUY" ? 1 : -1;
-      day.calls += 1;
-      if ((side === 1 && move > 0) || (side === -1 && move < 0)) day.correct += 1;
-    }
-  }
-  const series = [...days].map(([date, value]) => ({ time: `${date}T12:00:00`, ...value,
-    hitRateDelta: value.calls ? value.correct / value.calls * 100 - 50 : null }));
-  const calls = series.reduce((sum, day) => sum + day.calls, 0);
-  const correct = series.reduce((sum, day) => sum + day.correct, 0);
-  return { series, calls, correct, hours, hitRate: calls ? correct / calls : 0,
-    through: followOnHistory.at(-1)?.time ?? null };
+  return { ...evaluation, series, through: lastAvailable ?? null };
 }
 
 async function loadDecision() {
@@ -136,24 +72,26 @@ async function loadDecision() {
       if (!response.ok) throw new Error(`AEMO price and demand data request failed (HTTP ${response.status}).`);
       return parseAemoPriceDemandCsv(await response.text());
     })).then((files) => files.flat()),
-    fetchVicPowerMarketHistory({ now }),
+    fetchVicPowerMarketHistory({ now, minimumIntervals: 24 }).catch(() => []),
   ]);
   const currentMarketPoint = marketPoints.filter((point) => point.timestamp && dispatchTime(point.timestamp) <= now.getTime())
     .toSorted((a, b) => dispatchTime(a.timestamp!) - dispatchTime(b.timestamp!)).at(-1);
-  if (!currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000) {
-    throw new Error("AEMO has not published a recent VIC1 dispatch. No stale signal is shown.");
-  }
-  const baseHistory = hourHistory(rows).filter((row) => Date.parse(`${row.time}+10:00`) <= now.getTime());
+  let unavailableReason = !currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000
+    ? "AEMO has not published a recent VIC1 dispatch. Waiting for current inputs." : null;
+  const baseHistory = hourHistory(rows).filter((row) => Date.parse(`${row.time}+10:00`) + 3_600_000 <= now.getTime());
   const history = mergeMarketHours(baseHistory, liveHourHistory(marketPoints, now));
-  if (history.length < 168) throw new Error("Eight complete days of hourly VIC price and demand history are not available yet.");
-  const last = history.at(-1)!;
-  const target = new Date(Date.parse(`${last.time}Z`) + 3_600_000);
+  if (history.length < 168) unavailableReason = "Eight complete days of hourly VIC price and demand history are not available yet.";
+  const last = history.at(-1);
+  const target = new Date(Date.parse(`${last?.time ?? nemDate(now) + "T00:00:00"}Z`) + 3_600_000);
   const targetHour = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}T${String(target.getUTCHours()).padStart(2, "0")}:00:00`;
+  if (now.getTime() - Date.parse(`${targetHour}+10:00`) >= 3_600_000) {
+    unavailableReason = "The latest complete hourly price is unavailable. Waiting for AEMO hourly inputs.";
+  }
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
-  const completeLive = liveHourHistory(marketPoints, now, true);
+  const completeLive = liveHourHistory(marketPoints, now);
   const evaluationHistory = mergeMarketHours(baseHistory, completeLive);
-  return { decision: decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
-    liveTimestamp: currentMarketPoint.timestamp };
+  return { decision: unavailableReason ? { status: "unavailable" as const, reason: unavailableReason } : decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
+    liveTimestamp: currentMarketPoint?.timestamp ?? null };
 }
 
 export function BuySellPane({ width, height, focused }: PaneProps) {
@@ -196,22 +134,31 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
     }), panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
   ];
   const dailyHitRate = useMemo(() => staticSeries((evaluation?.series ?? []).map((day) => scalarPoint(chartDate(day.time), day.hitRateDelta)), {
-    id: "daily-hit-rate", label: "Hit rate vs 50%", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
+    id: "daily-hit-rate", label: "Hit rate vs heuristic", color: colors.positive, negativeColor: colors.negative, style: "columns", calendarSpaced: true,
   }), [colors.negative, colors.positive, evaluation?.series]);
   const evaluationSeries = [{ ...dailyHitRate, panelId: "hit-rate", unit: "pp", unitGroup: "percentage" }];
   const chartHeight = Math.max(8, height - tabRows - statGridRows(liveStats, width) - 4);
+  if (view === "evaluation" && !evaluation) {
+    return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
+      {tabStrip}<PaneStatusBody loading={resource.loading} error={resource.error} empty subject="Buy/Sell evaluation"
+        emptyTitle="Completed hourly observations are unavailable."
+        retry={{ onRetry: resource.reload, label: "Refresh", pending: resource.loading }}
+        width={width} height={Math.max(0, height - tabRows)} />
+    </Box>;
+  }
   if (view === "evaluation") {
     const evaluationStats: StatItem[] = [
+      { label: "Baseline", value: `${evaluation?.baselineCorrect ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.baselineHitRate ?? 0) * 100).toFixed(0)}%` },
       { label: "Hit rate", value: `${evaluation?.correct ?? 0}/${evaluation?.calls ?? 0} · ${((evaluation?.hitRate ?? 0) * 100).toFixed(0)}%` },
       { label: "Coverage", value: `${evaluation?.calls ?? 0}/${evaluation?.hours ?? 0} · ${((evaluation?.calls ?? 0) / Math.max(1, evaluation?.hours ?? 0) * 100).toFixed(0)}%` },
     ];
     const evaluationChartHeight = Math.max(8, height - tabRows - statGridRows(evaluationStats, width) - 3);
     return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
       {tabStrip}<StatGrid items={evaluationStats} width={width} />
-      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Daily hit rate vs 50% · pp" }]} width={width}
+      <CompositeChart series={evaluationSeries} panels={[{ id: "hit-rate", label: "Model minus heuristic · pp" }]} width={width}
         height={evaluationChartHeight} focused={focused} navigable={false} showLegend={false} showTimeAxis timeZone={NEM_TIME_ZONE}
         levels={{ seriesId: "daily-hit-rate", items: [
-          { id: "coin-flip", value: 0, color: "#ffffff", dashed: true, editable: false, actionable: false },
+          { id: "heuristic-parity", value: 0, color: "#ffffff", dashed: true, editable: false, actionable: false },
         ] }}
         referenceLevels={{ seriesId: "daily-hit-rate", items: [
           { id: "negative-axis", value: -20, color: colors.negative, label: "−20pp", editable: false, actionable: false },
@@ -224,7 +171,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
         formatValue={formatHitRateDelta} />
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text fg={colors.text}>{t("Model fit through Oct 31, 2026 · evaluation through {date}").replace("{date}", evaluation?.through?.slice(0, 10) ?? "—")}</Text>
-        <Text fg={colors.textDim}>{t("Each bar shows the day's directional hit rate relative to 50%; green is above, red below.")}</Text>
+        <Text fg={colors.textDim}>{t("Each bar compares the model with the same-weekday heuristic on the same called hours.")}</Text>
       </Box>
     </Box>;
   }
