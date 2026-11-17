@@ -59,7 +59,7 @@ export function TemperatureStressPane({ width, height, delta, onChange }: { widt
       { label: "Scenario peak", value: format(scenario.peakMw) },
       { label: "Peak demand change", value: `${change >= 0 ? "+" : ""}${format(change)}` },
     ]} />
-    <Box marginTop={1} flexShrink={0}>
+    <Box marginTop={1} flexShrink={0} width={chartWidth} height={chartHeight}>
       <CompositeChart width={chartWidth} height={chartHeight} series={series}
         panels={[{ id: "temperature-demand", label: "Peak demand by temperature change" }]}
         navigable={false} showLegend showTimeAxis
