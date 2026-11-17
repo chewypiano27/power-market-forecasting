@@ -16,12 +16,14 @@ is needed. A public binary download has not been published on GitHub.
 
 Choose the ZIP matching **Apple menu → About This Mac**: a **Chip** such as M1/M2/M3/M4 means `macos-arm64`; an **Intel processor** means `macos-x64`. The native build workflow produces separate packages, not one universal app.
 
-Both Mac packages have passed native CI installation of build dependencies,
-typechecking and packaging. The extracted Intel app has also started with a
-fresh local profile on macOS 14.8.3. Apple silicon, Windows and Linux still
-require interactive installation and use checks; a successful package build
-does not establish that these checks passed. Other macOS versions have not
-been verified interactively.
+Native CI builds and renderer startup checks cover Apple Silicon Mac, Intel Mac,
+Windows x64 and Ubuntu 24.04 x64. Each startup check extracts the full app bundle
+outside the repository and initializes it with a fresh profile. The Intel Mac
+app has also been checked interactively on macOS 14.8.3. The Windows installer
+wizard and recipient-specific security prompts still need a recipient check.
+
+Startup evidence: [Mac and Windows](https://github.com/chewypiano27/power-market-forecasting/actions/runs/44067418652),
+[Ubuntu 24.04](https://github.com/chewypiano27/power-market-forecasting/actions/runs/44067962687).
 
 ### If macOS blocks the first launch
 
@@ -162,9 +164,7 @@ For Windows, use **Extract All** on the `*-Setup.zip` archive, then open
 `.installer` folder beside the executable: it contains the app payload. Share
 the complete ZIP, not the small `.exe` by itself. The installer is unsigned
 and Windows may warn about the publisher. On Linux, extract the installer
-archive and use its included installer. These two workflows still need
-interactive installation checks on the recipient's operating system; a passing
-build alone does not establish full platform support. Do not substitute a
-`.tar.zst` update archive for the installer. Artifacts expire after 30 days, so
+archive and use its included installer. Use the installer supplied for your platform; the `.tar.zst` update archive is
+not a replacement for it. Artifacts expire after 30 days, so
 download the required packages into the final submission. No public release
 is created automatically.
