@@ -301,6 +301,10 @@ export class DesktopBackend {
     const init = await initializeDesktopBackend(this, rpc, payload);
     if (init.windowKind === "main") {
       this.flushPendingDeepLinks();
+      const startupCheck = process.env.VIC1_STARTUP_CHECK_FILE;
+      if (startupCheck) await Bun.write(startupCheck, JSON.stringify({
+        rendererInitialized: true, platform: process.platform, architecture: process.arch,
+      }));
     }
     return init;
   }

@@ -16,12 +16,14 @@ is needed. A public binary download has not been published on GitHub.
 
 Choose the ZIP matching **Apple menu → About This Mac**: a **Chip** such as M1/M2/M3/M4 means `macos-arm64`; an **Intel processor** means `macos-x64`. The native build workflow produces separate packages, not one universal app.
 
-Both Mac packages have passed native CI installation of build dependencies,
-typechecking and packaging. The extracted Intel app has also started with a
-fresh local profile on macOS 14.8.3. Apple silicon, Windows and Linux still
-require interactive installation and use checks; a successful package build
-does not establish that these checks passed. Other macOS versions have not
-been verified interactively.
+Native CI builds and renderer startup checks cover Apple Silicon Mac, Intel Mac,
+Windows x64 and Ubuntu 24.04 x64. Each startup check extracts the full app bundle
+outside the repository and initializes it with a fresh profile. The Intel Mac
+app has also been checked interactively on macOS 14.8.3. The Windows installer
+wizard and recipient-specific security prompts still need a recipient check.
+
+Startup evidence: [Mac and Windows](https://github.com/chewypiano27/power-market-forecasting/actions/runs/44067418652),
+[Ubuntu 24.04](https://github.com/chewypiano27/power-market-forecasting/actions/runs/44067962687).
 
 ### If macOS blocks the first launch
 
@@ -46,7 +48,7 @@ These instructions are an alternative to the supplied app package.
 
 ### Requirements
 
-- macOS; Intel x64 is the verified build target.
+- macOS, Windows x64, or Ubuntu 24.04 x64. The bundled Linux runtime requires glibc 2.38 or newer, GTK 3 and WebKitGTK 4.1; Ubuntu 22.04 does not satisfy that runtime requirement.
 - [Bun 1.4.4](https://bun.sh). Install it using Bun's instructions, reopen Terminal,
   and check `bun --version`.
 - Internet access for dependencies, Electrobun's native runtime and live data.
@@ -75,8 +77,8 @@ On the verified Intel Mac, launch the result with:
 open "build/dev-macos-x64/VIC1 Power Trader Workstation-dev.app"
 ```
 
-On another architecture, use the `.app` in the matching `build/dev-macos-<arch>/`
-folder. To build and open the development app in one command:
+On another Mac architecture, use the `.app` in the matching `build/dev-macos-<arch>/`
+folder. On Windows or Linux, or to build and open the development app in one command:
 
 ```sh
 bun run desktop:dev
@@ -121,6 +123,10 @@ To check an Intel package's checksum, open Terminal in its download folder:
 shasum -a 256 -c VIC1-1.0.0-macos-x64.zip.sha256
 ```
 
+The native workflow also copies each built app outside the checkout and checks that
+its renderer completes backend initialization with a fresh profile. This startup
+check does not replace interactive installation and feature checks.
+
 ## Troubleshooting
 
 - **`bun: command not found`:** install Bun and reopen Terminal.
@@ -141,7 +147,7 @@ check, including any macOS security prompt.
 The **Desktop packages** GitHub Actions workflow builds on native Apple silicon,
 Intel Mac, Windows x64 and Linux x64 runners. It can be run manually from the
 repository's **Actions** tab once the workflow is available on the default branch.
-The packaging branch also runs it when pushed.
+It also runs for pushes to `main`. Linux builds and startup checks use Ubuntu 24.04.
 
 Open a successful run and download the artifact for the recipient's computer:
 
@@ -158,9 +164,7 @@ For Windows, use **Extract All** on the `*-Setup.zip` archive, then open
 `.installer` folder beside the executable: it contains the app payload. Share
 the complete ZIP, not the small `.exe` by itself. The installer is unsigned
 and Windows may warn about the publisher. On Linux, extract the installer
-archive and use its included installer. These two workflows still need
-interactive installation checks on the recipient's operating system; a passing
-build alone does not establish full platform support. Do not substitute a
-`.tar.zst` update archive for the installer. Artifacts expire after 30 days, so
+archive and use its included installer. Use the installer supplied for your platform; the `.tar.zst` update archive is
+not a replacement for it. Artifacts expire after 30 days, so
 download the required packages into the final submission. No public release
 is created automatically.
