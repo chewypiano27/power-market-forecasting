@@ -2,7 +2,7 @@ name: Desktop packages
 on:
   workflow_dispatch:
   push:
-    branches: ["feature/desktop-installation-packages"]
+    branches: [main]
 permissions:
   contents: read
 jobs:
