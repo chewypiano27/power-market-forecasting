@@ -261,6 +261,7 @@ interface CompositeCursorLink {
 }
 
 export interface CompositeChartProps {
+  lineCueOverrides?: ReadonlyMap<string, SeriesLineCue>;
   /** IANA display clock; defaults to the intraday market clock, otherwise UTC. Points must be real instants. */
   timeZone?: string;
   series: ResolvedSeries[];

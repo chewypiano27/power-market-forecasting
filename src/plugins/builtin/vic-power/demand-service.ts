@@ -62,8 +62,9 @@ export async function fetchDemandInputs(targetDate: string, now: number, fetcher
     const date = shiftDemandDate(targetDate, -2 - index);
     return [date, parse(date)] as const;
   }));
-  return { forecast: parse(targetDate), recentForecasts,
-    history: dailyDemand(market.flatMap(body => parseDemandObservations(body))) };
+  const observations = market.flatMap(body => parseDemandObservations(body));
+  return { forecast: parse(targetDate), recentForecasts, observations,
+    history: dailyDemand(observations) };
 }
 
 function validCachedDemand(value: unknown, model: DemandProbabilityArtifact): value is Extract<DemandProbabilityResult, { status: "ready" }> {

@@ -6,7 +6,8 @@ import { t } from "../../../i18n";
 import { useThemeColors } from "../../../theme/theme-context";
 import { FILL_REST } from "../../../components/ui/fill";
 import { latestPeakTarget, peakModel } from "./demand-peak-service";
-import { fetchTemperatureInputs, temperaturePeakScenario } from "./demand-temperature-scenario";
+import { fetchTemperatureInputs, temperaturePeakScenario, temperatureHourlyProfile } from "./demand-temperature-scenario";
+import { NEM_TIME_ZONE } from "./analytics";
 import { DemandPeakDrivers } from "./demand-peak-drivers";
 
 export function TemperatureStressPane({ width, height, delta, onChange }: { width: number; height: number; delta: number; onChange: (value: number) => void }) {
@@ -42,15 +43,17 @@ export function TemperatureStressPane({ width, height, delta, onChange }: { widt
     staticSeries(curve.map(point => scalarPoint(position(point.offset), baseline.peakMw)), {
       id: "temperature-baseline", label: "Baseline", color: colors.textDim,
     }),
-    staticSeries(curve.map(point => scalarPoint(position(point.offset), scenario.peakMw)), {
-      id: "temperature-scenario", label: "Scenario demand", color: colors.borderFocused,
-    }),
     staticSeries([scalarPoint(position(delta), scenario.peakMw)], {
       id: "temperature-selected", label: "Selected", color: colors.textBright, style: "points",
     }),
   ].map(entry => ({ ...entry, panelId: "temperature-demand", unit: "MW", unitGroup: "demand" }));
   const chartWidth = Math.max(20, width - 2);
-  const chartHeight = Math.max(12, Math.min(24, height - 18));
+  const chartHeight = Math.max(10, Math.min(14, Math.floor((height - 18) / 2)));
+  const hourly = temperatureHourlyProfile(target, inputs.data!, baseline.peakMw, scenario.peakMw);
+  const hourlySeries = [
+    staticSeries(hourly.map(row => scalarPoint(row.time, row.baselineMw)), { id: "hourly-baseline", label: "Baseline demand", color: colors.warning, calendarSpaced: true }),
+    staticSeries(hourly.map(row => scalarPoint(row.time, row.scenarioMw)), { id: "hourly-scenario", label: "Temperature scenario", color: colors.textBright, calendarSpaced: true }),
+  ].map(entry => ({ ...entry, panelId: "hourly-demand", unit: "MW", unitGroup: "demand" }));
   return <ScrollBox width={width} height={height} flexDirection="column" {...FILL_REST} paddingX={1} paddingY={1}>
     <Box flexDirection="row" alignItems="flex-end" style={{ gap: "var(--power-space-sm)" }}>
       <Box flexGrow={1}><SliderField label="Forecast temperature change" value={delta} min={-8} max={8} step={0.5} formatValue={value => `${value >= 0 ? "+" : ""}${value.toFixed(1)}°C`} onChange={onChange} /></Box>
@@ -73,6 +76,15 @@ export function TemperatureStressPane({ width, height, delta, onChange }: { widt
             label: `${delta > 0 ? "+" : ""}${delta.toFixed(1)}°C`, color: colors.borderFocused }] }}
         formatValue={format} formatAxisValue={value => Math.round(value).toLocaleString("en-AU")} />
     </Box>
+    <Box marginTop={1} flexShrink={0} width={chartWidth} height={chartHeight}>
+      <CompositeChart width={chartWidth} height={chartHeight} series={hourlySeries}
+        panels={[{ id: "hourly-demand", label: "Hourly demand scenario" }]}
+        navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE}
+        lineCueOverrides={new Map([["hourly-scenario", { id: "dotted" as const, dash: [1, 4.5], thickness: 2, glyph: "×", sample: "┈┈" }]])}
+        emptyMessage="A complete same-weekday demand profile is unavailable."
+        formatValue={format} formatAxisValue={value => Math.round(value).toLocaleString("en-AU")} />
+    </Box>
+    <Text fg={colors.textDim} wrapText>Same-weekday hourly shape scaled to each modelled daily peak.</Text>
     <DemandPeakDrivers forecast={scenario} />
     <Box marginTop={1}><Text fg={colors.textDim} wrapText>{t("Changes every forecast hour by the selected temperature amount. Other model inputs stay fixed.")}</Text></Box>
   </ScrollBox>;

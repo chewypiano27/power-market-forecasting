@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import artifact from "../src/plugins/builtin/vic-power/demand-peak-artifact.json";
 import { buildDemandFeatures, demandDayStart, demandIssue, shiftDemandDate, type DemandForecast } from "../src/plugins/builtin/vic-power/demand-features";
 import { evaluatePeakModel, peakDemand, validatePeakArtifact } from "../src/plugins/builtin/vic-power/demand-peak";
-import { fetchTemperatureInputs, temperaturePeakScenario, type TemperatureInputs } from "../src/plugins/builtin/vic-power/demand-temperature-scenario";
+import { fetchTemperatureInputs, temperaturePeakScenario, temperatureHourlyProfile, type TemperatureInputs } from "../src/plugins/builtin/vic-power/demand-temperature-scenario";
 
 const model = validatePeakArtifact(artifact)!;
 const target = "2026-11-12", issue = demandIssue(target), now = Date.parse(issue.issueAt) + 1_000;
@@ -43,4 +43,19 @@ test("invalid changes, incomplete inputs, future issues and expired targets rema
 });
 test("input retrieval has a deadline even if the transport ignores abort", async () => {
   await expect(fetchTemperatureInputs(target, model, now, () => new Promise(() => {}), 5)).rejects.toThrow("Temperature inputs timed out");
+});
+
+test("hourly scenario retains the prior weekday shape and reaches each fitted peak", () => {
+  const data = inputs();
+  const start = demandDayStart(shiftDemandDate(target, -7));
+  data.observations = Array.from({ length: 288 }, (_, i) => ({ endAt: start + (i + 1) * 300_000, demand: 4000 + Math.floor(i / 12) * 50 }));
+  const rows = temperatureHourlyProfile(target, data, 6000, 6500);
+  expect(rows).toHaveLength(24);
+  expect(Math.max(...rows.map(row => row.baselineMw))).toBe(6000);
+  expect(Math.max(...rows.map(row => row.scenarioMw))).toBe(6500);
+  expect(rows[0]!.time.getTime()).toBe(demandDayStart(target));
+  for (const row of rows) expect(row.scenarioMw / row.baselineMw).toBeCloseTo(6500 / 6000, 10);
+  expect(temperatureHourlyProfile(target, data, 6000, 6000).every(row => row.baselineMw === row.scenarioMw)).toBe(true);
+  data.observations.pop();
+  expect(temperatureHourlyProfile(target, data, 6000, 6500)).toHaveLength(0);
 });

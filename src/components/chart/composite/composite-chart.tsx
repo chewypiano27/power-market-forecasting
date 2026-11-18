@@ -173,6 +173,7 @@ function ThemedCompositeChart({
   xAxis,
   remoteKind,
   allowHistoricalBackfill = false,
+  lineCueOverrides,
   axisWidth = 9,
   showLegend = true,
   showLatestChangePercent = false,
@@ -277,8 +278,10 @@ function ThemedCompositeChart({
   // Keyed by ids and styles: a live tick hands over new series objects.
   const lineCues = useMemo(() => {
     void cueKey;
-    return assignSeriesLineCues(cueSourceRef.current);
-  }, [cueKey]);
+    const cues = new Map(assignSeriesLineCues(cueSourceRef.current));
+    for (const [id, cue] of lineCueOverrides ?? []) cues.set(id, cue);
+    return cues;
+  }, [cueKey, lineCueOverrides]);
   const {
     navigationFrame, activeUserViewport, effectiveViewport, authoredViewportChanged, authoredGeneration,
     panViewport, panViewportByRatio, zoomViewport, setViewportRange, resetViewport,
