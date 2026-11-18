@@ -42,6 +42,9 @@ export function TemperatureStressPane({ width, height, delta, onChange }: { widt
     staticSeries(curve.map(point => scalarPoint(position(point.offset), baseline.peakMw)), {
       id: "temperature-baseline", label: "Baseline", color: colors.textDim,
     }),
+    staticSeries(curve.map(point => scalarPoint(position(point.offset), scenario.peakMw)), {
+      id: "temperature-scenario", label: "Scenario demand", color: colors.borderFocused,
+    }),
     staticSeries([scalarPoint(position(delta), scenario.peakMw)], {
       id: "temperature-selected", label: "Selected", color: colors.textBright, style: "points",
     }),
