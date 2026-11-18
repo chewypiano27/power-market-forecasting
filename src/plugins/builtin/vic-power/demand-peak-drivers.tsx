@@ -19,7 +19,7 @@ export function DemandPeakDrivers({ forecast }: { forecast: Extract<PeakResult, 
     </Box>
     {calculation.steps.map(step => <Box key={step.label} flexDirection="row" alignItems="center" height={1}>
       <Box width={19} flexShrink={0}><Text fg={colors.textDim}>{t(step.label)}</Text></Box>
-      <Box flexDirection="row" flexGrow={1} minWidth={0} height={1} aria-hidden="true">
+      <Box flexDirection="row" flexGrow={1} minWidth={0} height={1} style={{ flexBasis: 0 }} aria-hidden="true">
         <Box width={`${Math.abs(step.mw) / largest * 100}%`} height={1}
           backgroundColor={step.label === "Weather" ? colors.negative : step.label === "Demand history" ? colors.positive : colors.warning}
           style={{ border: "none", borderRadius: "var(--power-radius-sm)", opacity: 0.7 }} />
