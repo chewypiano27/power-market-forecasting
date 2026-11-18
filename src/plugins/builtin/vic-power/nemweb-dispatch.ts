@@ -37,7 +37,7 @@ export function parseNemwebDispatch(csv: string, now: number): DispatchPoint[] {
   });
 }
 
-export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date, intervalCount: 12 | 24 | 36 = 12) {
+export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date, intervalCount = 12, from?: Date) {
   const listing = await fetcher(DIRECTORY);
   if (!listing.ok) throw new Error("NEMWeb dispatch directory unavailable");
   const names = [...new Set([...(await listing.text()).matchAll(/PUBLIC_DISPATCHIS_\d{12}_\d+\.zip/gi)].map(match => match[0]))].sort().reverse();
@@ -46,18 +46,26 @@ export async function fetchNemwebDispatch(fetcher: HttpFetchTransport, now: Date
     const stamp = name.slice("PUBLIC_DISPATCHIS_".length, "PUBLIC_DISPATCHIS_".length + 12);
     const instant = dispatchTime(`${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:00`);
     if (timestamps.has(stamp) || !Number.isFinite(instant) || instant > now.getTime() + 300_000 || instant < now.getTime() - 2 * 86_400_000) continue;
+    if (from && instant < from.getTime()) break;
     timestamps.add(stamp); selected.push(name);
     if (selected.length === intervalCount) break;
   }
   const observations: DispatchPoint[] = [];
-  // Four at a time keeps refreshes bounded while recovering the requested recent interval window.
-  for (let offset = 0; offset < selected.length; offset += 4) {
-    const batch = await Promise.all(selected.slice(offset, offset + 4).map(async name => {
-      try {
-        const response = await fetcher(new URL(name, DIRECTORY).href);
-        if (!response.ok) return [];
-        return parseNemwebDispatch(await dispatchArchiveCsv(await response.arrayBuffer()), now.getTime());
-      } catch { return []; }
+  // Limit day backfills to three concurrent archive requests.
+  const batchSize = from ? 3 : 4;
+  for (let offset = 0; offset < selected.length; offset += batchSize) {
+    const batch = await Promise.all(selected.slice(offset, offset + batchSize).map(async name => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const response = await fetcher(new URL(name, DIRECTORY).href);
+          if (response.ok) return parseNemwebDispatch(await dispatchArchiveCsv(await response.arrayBuffer()), now.getTime());
+          if (response.status !== 429 && response.status < 500) return [];
+        } catch {
+          if (attempt === 1) return [];
+        }
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      return [];
     }));
     observations.push(...batch.flat());
   }

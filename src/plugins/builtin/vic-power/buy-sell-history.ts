@@ -1,4 +1,5 @@
 import type { BuySellHourlyPrice } from "./buy-sell-model";
+import type { VicMarketPoint } from "./model";
 import type { fetchVicPowerMarketHistory, parseAemoPriceDemandCsv } from "./data";
 import { dispatchTime } from "./analytics";
 
@@ -54,6 +55,29 @@ export function liveHourHistory(points: Awaited<ReturnType<typeof fetchVicPowerM
 /** Retain complete dispatch hours between refreshes until the monthly file catches up. */
 export class CompleteHourHistory {
   private readonly recent = new Map<string, BuySellHourlyPrice>();
+  private readonly recentDispatch = new Map<string, VicMarketPoint>();
+  private backfilledDay: string | null = null;
+  private backfillAttempt: { day: string; at: number } | null = null;
+
+  shouldBackfillDay(day: string, now: number): boolean {
+    if (this.backfilledDay === day) return false;
+    return this.backfillAttempt?.day !== day || now - this.backfillAttempt.at >= 30 * 60_000;
+  }
+
+  noteBackfillAttempt(day: string, now: number): void {
+    this.backfillAttempt = { day, at: now };
+  }
+
+  markBackfilledDay(day: string): void {
+    this.backfilledDay = day;
+  }
+
+  mergeDispatch(points: readonly VicMarketPoint[], now: number): VicMarketPoint[] {
+    for (const point of points) if (point.timestamp) this.recentDispatch.set(point.timestamp, point);
+    const cutoff = now - 48 * 3_600_000;
+    for (const [timestamp] of this.recentDispatch) if (dispatchTime(timestamp) < cutoff) this.recentDispatch.delete(timestamp);
+    return [...this.recentDispatch.values()].sort((a, b) => dispatchTime(a.timestamp!) - dispatchTime(b.timestamp!));
+  }
 
   merge(base: readonly BuySellHourlyPrice[], live: readonly BuySellHourlyPrice[]): BuySellHourlyPrice[] {
     for (const row of live) this.recent.set(row.time, row);

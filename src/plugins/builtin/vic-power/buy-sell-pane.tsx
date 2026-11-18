@@ -59,23 +59,33 @@ function evaluateFollowOn(history: readonly BuySellHourlyPrice[]) {
 
 async function loadDecision() {
   const now = new Date();
-  const nemNow = new Date(`${nemDate(now)}T12:00:00Z`);
+  const today = nemDate(now);
+  const nemNow = new Date(`${today}T12:00:00Z`);
+  const startOfNemDay = new Date(`${today}T00:00:00+10:00`);
+  const expectedDispatchCount = Math.floor((now.getTime() - startOfNemDay.getTime()) / 300_000) + 1;
+  const backfillToday = completeHours.shouldBackfillDay(today, now.getTime());
+  if (backfillToday) completeHours.noteBackfillAttempt(today, now.getTime());
   const months = [previousMonth(nemNow), new Date(Date.UTC(nemNow.getUTCFullYear(), nemNow.getUTCMonth(), 1))];
-  const [rows, marketPoints] = await Promise.all([
+  const [rows, liveHistory] = await Promise.all([
     Promise.all(months.map(async (month) => {
       const key = `${month.getUTCFullYear()}${String(month.getUTCMonth() + 1).padStart(2, "0")}`;
       const response = await httpFetch(`https://www.aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_${key}_VIC1.csv`);
       if (!response.ok) throw new Error(`AEMO price and demand data request failed (HTTP ${response.status}).`);
       return parseAemoPriceDemandCsv(await response.text());
     })).then((files) => files.flat()),
-    fetchVicPowerMarketHistory({ now, minimumIntervals: 36 }).catch(() => []),
+    fetchVicPowerMarketHistory({ now, minimumIntervals: 36, ...(backfillToday ? { from: startOfNemDay } : {}) })
+      .then(points => ({ points, backfilled: backfillToday && points.length >= expectedDispatchCount * 0.9 }))
+      .catch(() => fetchVicPowerMarketHistory({ now, minimumIntervals: 36 }).then(points => ({ points, backfilled: false })).catch(() => ({ points: [], backfilled: false }))),
   ]);
+  if (liveHistory.backfilled) completeHours.markBackfilledDay(today);
+  const marketPoints = completeHours.mergeDispatch(liveHistory.points, now.getTime());
   const currentMarketPoint = marketPoints.filter((point) => point.timestamp && dispatchTime(point.timestamp) <= now.getTime())
     .toSorted((a, b) => dispatchTime(a.timestamp!) - dispatchTime(b.timestamp!)).at(-1);
   let unavailableReason = !currentMarketPoint?.timestamp || now.getTime() - dispatchTime(currentMarketPoint.timestamp) > 15 * 60_000
     ? "AEMO has not published a recent VIC1 dispatch. Waiting for current inputs." : null;
   const baseHistory = hourHistory(rows).filter((row) => Date.parse(`${row.time}+10:00`) + 3_600_000 <= now.getTime());
-  const history = completeHours.merge(baseHistory, liveHourHistory(marketPoints, now));
+  const liveHours = liveHourHistory(marketPoints, now);
+  const history = completeHours.merge(baseHistory, liveHours);
   if (history.length < 168) unavailableReason = "Eight complete days of hourly VIC price and demand history are not available yet.";
   const last = history.at(-1);
   const target = new Date(Date.parse(`${last?.time ?? nemDate(now) + "T00:00:00"}Z`) + 3_600_000);
@@ -85,8 +95,8 @@ async function loadDecision() {
   }
   const holiday = victorianCalendarAnnotation(targetHour.slice(0, 10));
   const evaluationHistory = history;
-  return { decision: unavailableReason ? { status: "unavailable" as const, reason: unavailableReason } : decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory), recent: history.slice(-24),
-    liveTimestamp: currentMarketPoint?.timestamp ?? null };
+  return { decision: unavailableReason ? { status: "unavailable" as const, reason: unavailableReason } : decideBuySell(history.slice(-168), targetHour, holiday), evaluation: evaluateFollowOn(evaluationHistory),
+    liveTimestamp: currentMarketPoint?.timestamp ?? null, recentDispatch: marketPoints.filter(point => dispatchTime(point.timestamp!) >= startOfNemDay.getTime()) };
 }
 
 export function BuySellPane({ width, height, focused }: PaneProps) {
@@ -111,17 +121,17 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
   const evaluation = resource.data?.evaluation;
   const dataThrough = resource.data?.liveTimestamp ?? null;
   const actualSeries = useMemo(() => {
-    const rows = resource.data?.recent ?? [];
+    const rows = resource.data?.recentDispatch ?? [];
     const points = rows.flatMap((row, index) => {
       const previous = rows[index - 1];
-      const gap = previous && Date.parse(`${row.time}+10:00`) - Date.parse(`${previous.time}+10:00`) > 3_600_000;
-      const gapStart = previous ? new Date(chartDate(previous.time).getTime() + 3_600_000) : null;
-      return [...(gap && gapStart ? [scalarPoint(gapStart, null)] : []), scalarPoint(chartDate(row.time), row.price)];
+      const gap = previous && dispatchTime(row.timestamp!) - dispatchTime(previous.timestamp!) > 5 * 60_000;
+      const gapStart = previous ? new Date(dispatchTime(previous.timestamp!) + 5 * 60_000) : null;
+      return [...(gap && gapStart ? [scalarPoint(gapStart, null)] : []), scalarPoint(chartDate(row.timestamp!), row.price)];
     });
     return staticSeries(points, {
-      id: "vic1-hourly-rrp", label: "VIC1 hourly price", color: colors.warning, calendarSpaced: true,
+      id: "vic1-dispatch-rrp", label: "VIC1 dispatch price", color: colors.warning, calendarSpaced: true,
     });
-  }, [colors.warning, resource.data?.recent]);
+  }, [colors.warning, resource.data?.recentDispatch]);
   const liveSeries = [
     { ...actualSeries, panelId: "price", unit: "$/MWh", unitGroup: "power-price" },
     { ...staticSeries(decision ? [scalarPoint(chartDate(decision.targetHour), decision.forecastPrice)] : [], {
@@ -183,7 +193,7 @@ export function BuySellPane({ width, height, focused }: PaneProps) {
       : t("HOLD because the estimated move stays within the ±$5/MWh threshold.");
   return <Box width={width} height={height} flexDirection="column" {...FILL_REST}>
     {tabStrip}<StatGrid items={liveStats} width={width} />
-    <CompositeChart series={liveSeries} panels={[{ id: "price", label: "VIC1 hourly electricity price · $/MWh" }]} width={width}
+    <CompositeChart series={liveSeries} panels={[{ id: "price", label: "VIC1 dispatch price · $/MWh" }]} width={width}
       height={chartHeight} focused={focused} navigable={false} showLegend showTimeAxis timeZone={NEM_TIME_ZONE}
       formatValue={(value) => `$${value.toFixed(2)}`} />
     <Box flexDirection="column" paddingX={1} paddingY={1}>

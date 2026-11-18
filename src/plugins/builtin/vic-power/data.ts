@@ -736,10 +736,15 @@ export async function fetchVicPowerMarketHistory(options: {
   fetcher?: HttpFetchTransport;
   now?: Date;
   minimumIntervals?: 12 | 24 | 36;
+  from?: Date;
   requestTimeoutMs?: number;
 } = {}): Promise<VicMarketPoint[]> {
   const fetcher = timedAemoFetcher(options.fetcher ?? httpFetch, options.requestTimeoutMs ?? 20_000);
   const now = options.now ?? new Date();
+  if (options.from) {
+    const intervalCount = Math.min(288, Math.ceil((now.getTime() - options.from.getTime()) / 300_000) + 1);
+    return (await fetchNemwebDispatch(fetcher, now, intervalCount, options.from)).market;
+  }
   if (options.minimumIntervals === 24 || options.minimumIntervals === 36) return (await fetchNemwebDispatch(fetcher, now, options.minimumIntervals)).market;
   return (await fetchAemoLive(fetcher, now)).market;
 }
